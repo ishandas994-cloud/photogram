@@ -1,0 +1,28 @@
+{
+  "name": "photogram-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "axios": "^1.7.3",
+    "socket.io-client": "^4.7.5",
+    "react-hot-toast": "^2.4.1",
+    "react-dropzone": "^14.2.3",
+    "date-fns": "^3.6.0",
+    "react-intersection-observer": "^9.13.0"
+  },
+  "devDependencies": {
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  },
+  "proxy": "http://localhost:5000",
+  "browserslist": {
+    "production": [">0.2%", "not dead"],
+    "development": ["last 1 chrome version"]
+  }
+}
