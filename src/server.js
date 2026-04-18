@@ -96,7 +96,7 @@ io.sendNotification = (recipientId, payload) => {
     io.to(sid).emit('notification', payload));
 };
 
-const PORT = parseInt(process.env.PORT || '5000');
+const PORT = parseInt(process.env.PORT || '3000');
 server.listen(PORT, () => {
   console.log('🚀  Photogram API  →  http://localhost:' + PORT);
   console.log('📡  Socket.io ready');

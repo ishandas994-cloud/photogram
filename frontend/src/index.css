@@ -1,12 +1,12 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #fafaf8;
+  --bg:        #f7f5f0;
   --surface:   #ffffff;
-  --border:    #e8e6e0;
-  --border-2:  #d4d0c8;
+  --border:    #e8e4dc;
+  --border-2:  #d4cfc4;
   --text-1:    #1a1917;
   --text-2:    #6b6860;
   --text-3:    #a09d96;
@@ -14,14 +14,14 @@
   --accent-2:  #f4a261;
   --blue:      #457b9d;
   --green:     #2d6a4f;
-  --radius:    12px;
-  --radius-sm: 8px;
-  --shadow:    0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.04);
-  --shadow-lg: 0 8px 32px rgba(0,0,0,.12);
+  --radius:    14px;
+  --radius-sm: 9px;
+  --shadow:    0 2px 8px rgba(0,0,0,.07), 0 8px 24px rgba(0,0,0,.04);
+  --shadow-lg: 0 12px 40px rgba(0,0,0,.14);
   --nav-w:     240px;
   --font:      'DM Sans', sans-serif;
   --font-serif:'DM Serif Display', serif;
-  --transition: 160ms ease;
+  --transition: 180ms cubic-bezier(.4,0,.2,1);
 }
 
 html { scroll-behavior: smooth; }
@@ -33,6 +33,10 @@ body {
   font-size: 15px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(230,57,70,.04) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(69,123,157,.04) 0%, transparent 50%);
+  min-height: 100vh;
 }
 
 a { color: inherit; text-decoration: none; }
@@ -40,39 +44,165 @@ button { font-family: var(--font); cursor: pointer; border: none; background: no
 input, textarea { font-family: var(--font); }
 img { display: block; max-width: 100%; }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
 
-/* Utilities */
-.sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); }
-
-/* Animations */
-@keyframes fadeIn  { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
-@keyframes spin    { to { transform: rotate(360deg); } }
-@keyframes pulse   { 0%,100% { opacity:1; } 50% { opacity:.4; } }
-@keyframes slideUp { from { transform:translateY(100%); opacity:0; } to { transform:none; opacity:1; } }
-@keyframes heartPop{ 0%{transform:scale(1)} 30%{transform:scale(1.4)} 60%{transform:scale(.9)} 100%{transform:scale(1)} }
-
-.fade-in  { animation: fadeIn .25s ease both; }
-.spin     { animation: spin .7s linear infinite; }
-
-/* Form elements */
-.input {
-  width: 100%;
-  padding: 10px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--text-1);
-  font-size: 14px;
-  outline: none;
-  transition: border var(--transition);
+/* ── Keyframes ──────────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
-.input:focus { border-color: var(--text-2); }
-.input::placeholder { color: var(--text-3); }
+@keyframes fadeInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse {
+  0%,100% { opacity: 1; }
+  50%      { opacity: .45; }
+}
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+@keyframes heartPop {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(1.5); }
+  60%  { transform: scale(.9); }
+  100% { transform: scale(1); }
+}
+@keyframes float {
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes gradientShift {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+@keyframes ripple {
+  0%   { transform: scale(0); opacity: .5; }
+  100% { transform: scale(4); opacity: 0; }
+}
+@keyframes notifSlide {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes storyRing {
+  0%,100% { filter: hue-rotate(0deg); }
+  50%      { filter: hue-rotate(45deg); }
+}
 
+/* ── Animation utility classes ──────────────────────────── */
+.fade-in        { animation: fadeIn      .35s cubic-bezier(.4,0,.2,1) both; }
+.fade-in-left   { animation: fadeInLeft  .35s cubic-bezier(.4,0,.2,1) both; }
+.fade-in-right  { animation: fadeInRight .35s cubic-bezier(.4,0,.2,1) both; }
+.fade-in-scale  { animation: fadeInScale .3s  cubic-bezier(.4,0,.2,1) both; }
+.slide-up       { animation: slideUp     .4s  cubic-bezier(.4,0,.2,1) both; }
+.spin           { animation: spin .7s linear infinite; }
+.float          { animation: float 3s ease-in-out infinite; }
+
+/* Staggered children */
+.stagger > *:nth-child(1)  { animation-delay: .05s; }
+.stagger > *:nth-child(2)  { animation-delay: .10s; }
+.stagger > *:nth-child(3)  { animation-delay: .15s; }
+.stagger > *:nth-child(4)  { animation-delay: .20s; }
+.stagger > *:nth-child(5)  { animation-delay: .25s; }
+.stagger > *:nth-child(6)  { animation-delay: .30s; }
+
+/* ── Skeleton loader ────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(90deg,
+    var(--border) 25%,
+    var(--bg) 50%,
+    var(--border) 75%);
+  background-size: 600px 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Glassmorphism card ─────────────────────────────────── */
+.glass {
+  background: rgba(255,255,255,.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,.6);
+}
+
+/* ── Post card hover lift ───────────────────────────────── */
+.post-card {
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+.post-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0,0,0,.10);
+}
+
+/* ── Like button ────────────────────────────────────────── */
+.like-btn {
+  transition: transform .15s, color .15s;
+  position: relative;
+  overflow: visible;
+}
+.like-btn:hover  { transform: scale(1.15); }
+.like-btn.liked  { animation: heartPop .35s ease; color: var(--accent) !important; }
+
+/* ── Nav item ───────────────────────────────────────────── */
+.nav-item {
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition);
+}
+.nav-item::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 0;
+  width: 3px; height: 100%;
+  background: var(--accent);
+  border-radius: 0 3px 3px 0;
+  transform: scaleY(0);
+  transition: transform var(--transition);
+}
+.nav-item.active::after { transform: scaleY(1); }
+
+/* ── Story ring animation ───────────────────────────────── */
+.story-ring { animation: storyRing 4s ease-in-out infinite; }
+
+/* ── Gradient text ──────────────────────────────────────── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2), var(--blue));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+}
+
+/* ── Explore grid hover ─────────────────────────────────── */
+.explore-cell {
+  transition: transform .25s cubic-bezier(.4,0,.2,1);
+  overflow: hidden;
+}
+.explore-cell:hover { transform: scale(1.02); z-index: 1; }
+.explore-cell img   { transition: transform .4s ease; }
+.explore-cell:hover img { transform: scale(1.08); }
+
+/* ── Button ripple ──────────────────────────────────────── */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -84,23 +214,108 @@ img { display: block; max-width: 100%; }
   font-weight: 500;
   transition: all var(--transition);
   cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: 50%;
+  background: rgba(255,255,255,.25);
+  border-radius: 50%;
+  transform: scale(0);
+  transition: none;
+}
+.btn:active::after {
+  inset: -50%;
+  transform: scale(1);
+  opacity: 0;
+  transition: transform .5s ease, opacity .5s ease;
+}
+
 .btn-primary {
   background: var(--text-1);
   color: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
 }
-.btn-primary:hover { opacity: .85; }
-.btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.btn-primary:hover   { opacity: .88; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.22); }
+.btn-primary:active  { transform: translateY(0); }
+.btn-primary:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-outline {
   border: 1.5px solid var(--border-2);
   color: var(--text-1);
   background: transparent;
 }
-.btn-outline:hover { background: var(--bg); }
+.btn-outline:hover { background: var(--bg); transform: translateY(-1px); }
 
-.btn-ghost { color: var(--text-2); }
+.btn-ghost  { color: var(--text-2); }
 .btn-ghost:hover { color: var(--text-1); background: var(--bg); }
 
 .btn-danger { background: var(--accent); color: #fff; }
-.btn-danger:hover { opacity:.85; }
+.btn-danger:hover { opacity: .85; transform: translateY(-1px); }
+
+/* ── Input ──────────────────────────────────────────────── */
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-1);
+  font-size: 14px;
+  outline: none;
+  transition: border var(--transition), box-shadow var(--transition);
+}
+.input:focus {
+  border-color: var(--text-2);
+  box-shadow: 0 0 0 3px rgba(26,25,23,.06);
+}
+.input::placeholder { color: var(--text-3); }
+
+/* ── Page transitions ───────────────────────────────────── */
+.page-enter {
+  animation: fadeIn .3s cubic-bezier(.4,0,.2,1) both;
+}
+
+/* ── Notification badge pulse ───────────────────────────── */
+.badge-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+/* ── Sidebar gradient accent ────────────────────────────── */
+.sidebar-logo {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  background-size: 200% 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 5s ease infinite;
+}
+
+/* ── Message bubble hover ───────────────────────────────── */
+.bubble {
+  transition: transform .15s ease;
+}
+.bubble:hover { transform: scale(1.01); }
+
+/* ── Avatar hover ───────────────────────────────────────── */
+.avatar-wrap {
+  transition: transform var(--transition);
+}
+.avatar-wrap:hover { transform: scale(1.05); }
+
+/* ── Card ───────────────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  transition: box-shadow var(--transition), transform var(--transition);
+}
+.card:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,.09);
+}
+
+/* ── Scrollbar styled ───────────────────────────────────── */
+* { scrollbar-width: thin; scrollbar-color: var(--border-2) transparent; }
