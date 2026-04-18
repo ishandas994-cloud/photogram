@@ -13,6 +13,9 @@ router.get('/:username/followers',  optionalAuth, ctrl.getFollowers);
 router.get('/:username/following',  optionalAuth, ctrl.getFollowing);
 router.post('/:username/follow',    requireAuth,  ctrl.follow);
 router.delete('/:username/follow',  requireAuth,  ctrl.unfollow);
+router.post('/:username/follow/accept',   requireAuth, ctrl.acceptFollow);
+router.delete('/:username/follow/decline', requireAuth, ctrl.declineFollow);
 router.post('/:username/block',     requireAuth,  ctrl.blockUser);
-
+router.post('/:username/follow/accept',    requireAuth, ctrl.acceptFollow);
+router.delete('/:username/follow/decline', requireAuth, ctrl.declineFollow);
 module.exports = router;

@@ -219,3 +219,89 @@ exports.blockUser = async (req, res) => {
   );
   res.json({ message: 'User blocked.' });
 };
+// ── POST /users/:username/follow/accept ─────────────────────
+exports.acceptFollow = async (req, res) => {
+  const { rows: target } = await db.query(
+    'SELECT id FROM users WHERE username = $1', [req.params.username]
+  );
+  if (!target[0]) return res.status(404).json({ error: 'User not found.' });
+
+  await db.query(
+    `UPDATE follows SET status = 'accepted'
+     WHERE follower_id = $1 AND following_id = $2 AND status = 'pending'`,
+    [target[0].id, req.user.id]
+  );
+
+  await db.query(
+    `INSERT INTO notifications (recipient_id, actor_id, type)
+     VALUES ($1, $2, 'follow_accept')`,
+    [target[0].id, req.user.id]
+  );
+
+  res.json({ message: 'Follow request accepted.' });
+};
+
+// ── POST /users/:username/follow/accept ─────────────────────
+exports.acceptFollow = async (req, res) => {
+  const { rows: target } = await db.query(
+    'SELECT id FROM users WHERE username = $1', [req.params.username]
+  );
+  if (!target[0]) return res.status(404).json({ error: 'User not found.' });
+
+  await db.query(
+    `UPDATE follows SET status = 'accepted'
+     WHERE follower_id = $1 AND following_id = $2 AND status = 'pending'`,
+    [target[0].id, req.user.id]
+  );
+
+  await db.query(
+    `INSERT INTO notifications (recipient_id, actor_id, type)
+     VALUES ($1, $2, 'follow_accept')`,
+    [target[0].id, req.user.id]
+  );
+
+  res.json({ message: 'Accepted.' });
+};
+
+// ── DELETE /users/:username/follow/decline ──────────────────
+exports.declineFollow = async (req, res) => {
+  const { rows: target } = await db.query(
+    'SELECT id FROM users WHERE username = $1', [req.params.username]
+  );
+  if (!target[0]) return res.status(404).json({ error: 'User not found.' });
+
+  await db.query(
+    `DELETE FROM follows
+     WHERE follower_id = $1 AND following_id = $2 AND status = 'pending'`,
+    [target[0].id, req.user.id]
+  );
+
+  res.json({ message: 'Declined.' });
+};
+exports.acceptFollow = async (req, res) => {
+  const { rows: target } = await db.query(
+    'SELECT id FROM users WHERE username = $1', [req.params.username]
+  );
+  if (!target[0]) return res.status(404).json({ error: 'User not found.' });
+  await db.query(
+    `UPDATE follows SET status='accepted' WHERE follower_id=$1 AND following_id=$2 AND status='pending'`,
+    [target[0].id, req.user.id]
+  );
+  await db.query(
+    `INSERT INTO notifications (recipient_id, actor_id, type) VALUES ($1,$2,'follow_accept')`,
+    [target[0].id, req.user.id]
+  );
+  res.json({ message: 'Accepted.' });
+};
+
+exports.declineFollow = async (req, res) => {
+  const { rows: target } = await db.query(
+    'SELECT id FROM users WHERE username = $1', [req.params.username]
+  );
+  if (!target[0]) return res.status(404).json({ error: 'User not found.' });
+  await db.query(
+    `DELETE FROM follows WHERE follower_id=$1 AND following_id=$2 AND status='pending'`,
+    [target[0].id, req.user.id]
+  );
+  res.json({ message: 'Declined.' });
+};

@@ -156,7 +156,7 @@ const ProfilePage = () => {
       </div>
 
       {/* Private gate */}
-      {profile.private && !isMe ? (
+      {profile.is_private && !isMe ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-3)' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>This account is private</div>
