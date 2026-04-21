@@ -149,39 +149,39 @@ exports.getMessages = async (req, res) => {
 // ─── POST /api/conversations/:id/messages ───────────────────
 exports.sendMessage = async (req, res) => {
   const { id: convId } = req.params;
-  const { type='text', content, shared_post_id, shared_story_id } = req.body;
-  const userId = req.user.id;
-  const file   = req.file;
-
-  const { rows:[member] } = await db.query(
-    'SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2',
-    [convId, userId]
-  );
-  if (!member)
-    return res.status(403).json({ error: 'Not a member of this conversation.' });
+  const { content }    = req.body;
+  const userId         = req.user.id;
 
   try {
-    let mediaUrl;
-    if (file) {
-      const r = await processImage(file.buffer, 'messages');
-      mediaUrl = r.url;
-    }
+    // Check membership
+    const { rows: [member] } = await db.query(
+      'SELECT 1 FROM conversation_members WHERE conversation_id=$1 AND user_id=$2',
+      [convId, userId]
+    );
+    if (!member) return res.status(403).json({ error: 'Not a member.' });
 
-    const { rows:[message] } = await db.query(
-      `INSERT INTO messages
-         (conversation_id, sender_id, type, content,
-          media_url, shared_post_id, shared_story_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [convId, userId, type, content||null,
-       mediaUrl||null, shared_post_id||null, shared_story_id||null]
+    if (!content?.trim()) return res.status(400).json({ error: 'Message is empty.' });
+
+    // Insert message
+    const { rows: [message] } = await db.query(
+      `INSERT INTO messages (conversation_id, sender_id, type, content)
+       VALUES ($1, $2, 'text', $3) RETURNING *`,
+      [convId, userId, content.trim()]
     );
 
-    // Real-time: emit to conversation room
-    req.app.get('io')?.to(convId).emit('new_message', message);
+    // Get sender info
+    const { rows: [sender] } = await db.query(
+      'SELECT username, avatar_url FROM users WHERE id=$1', [userId]
+    );
 
-    res.status(201).json(message);
+    const full = { ...message, username: sender.username, avatar_url: sender.avatar_url };
+
+    // Real-time emit
+    req.app.get('io')?.to(convId).emit('new_message', full);
+
+    res.status(201).json(full);
   } catch (err) {
-    console.error(err);
+    console.error('sendMessage error:', err.message);
     res.status(500).json({ error: 'Message send failed.' });
   }
 };

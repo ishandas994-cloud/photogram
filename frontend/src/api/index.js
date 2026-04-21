@@ -67,8 +67,10 @@ export const messagesAPI = {
   getConversations:  ()           => api.get('/conversations'),
   createConversation:(data)       => api.post('/conversations', data),
   getMessages:       (id, params) => api.get(`/conversations/${id}/messages`, { params }),
-  sendMessage:       (id, data)   => api.post(`/conversations/${id}/messages`, data),
-  sendMediaMessage:  (id, fd)     => api.post(`/conversations/${id}/messages`, fd, {
+  sendMessage:       (id, data)   => api.post(`/conversations/${id}/messages`, data, {
+    headers: { 'Content-Type': 'application/json' },
+  }),
+  sendMediaMessage:  (id, fd)     => api.post(`/conversations/${id}/messages/media`, fd, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   deleteMessage:     (id)         => api.delete(`/conversations/messages/${id}`),

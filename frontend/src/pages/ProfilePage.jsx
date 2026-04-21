@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { usersAPI, postsAPI } from '../api';
+import { usersAPI, postsAPI, messagesAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/ui/Avatar';
 import { Spinner, Skeleton } from '../components/ui/Spinner';
@@ -83,6 +83,13 @@ const ProfilePage = () => {
     } catch { toast.error('Action failed'); }
   };
 
+  const handleMessage = async () => {
+    try {
+      const { data } = await messagesAPI.createConversation({ recipient_id: profile.id });
+      navigate('/messages/' + data.id);
+    } catch { toast.error('Could not start conversation'); }
+  };
+
   if (loading) return (
     <div style={{ maxWidth: 935, margin: '0 auto', padding: '40px 16px' }}>
       <div style={{ display: 'flex', gap: 40, marginBottom: 40 }}>
@@ -123,9 +130,7 @@ const ProfilePage = () => {
                 >
                   {following ? 'Following' : profile.follow_status === 'pending' ? 'Requested' : 'Follow'}
                 </button>
-                <Link to={`/messages`} className="btn btn-outline" style={{ fontSize: 13, padding: '7px 16px' }}>
-                  Message
-                </Link>
+                <button onClick={handleMessage} className="btn btn-outline" style={{ fontSize: 13, padding: '7px 16px' }}>Message</button>
               </div>
             )}
           </div>
@@ -156,7 +161,7 @@ const ProfilePage = () => {
       </div>
 
       {/* Private gate */}
-      {profile.is_private && !isMe ? (
+      {profile.private && !isMe ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text-3)' }}>
           <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--text-2)', marginBottom: 6 }}>This account is private</div>

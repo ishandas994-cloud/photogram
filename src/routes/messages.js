@@ -6,16 +6,11 @@ const { upload } = require('../middleware/upload');
 
 router.use(requireAuth);
 
-// Conversations
-router.get('/',                     ctrl.getConversations);    // GET  all conversations for current user
-router.post('/',                    ctrl.createConversation);  // POST start new 1-to-1 or group chat
-
-// Messages inside a conversation
-router.get('/:id/messages',         ctrl.getMessages);         // GET  paginated messages
-router.post('/:id/messages',
-  upload.single('media'),           ctrl.sendMessage);         // POST send text/media message
-
-// Delete a single message
-router.delete('/messages/:msgId',   ctrl.deleteMessage);       // DELETE (soft) own message
+router.get('/',                   ctrl.getConversations);
+router.post('/',                  ctrl.createConversation);
+router.get('/:id/messages',       ctrl.getMessages);
+router.post('/:id/messages',      ctrl.sendMessage);
+router.post('/:id/messages/media',upload.single('media'), ctrl.sendMessage);
+router.delete('/messages/:msgId', ctrl.deleteMessage);
 
 module.exports = router;
