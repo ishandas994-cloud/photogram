@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { useSocket } from './context/SocketContext';
+import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
+import IncomingCall from './components/message/IncomingCall';
 
 import LoginPage          from './pages/LoginPage';
 import RegisterPage       from './pages/RegisterPage';
@@ -17,46 +20,106 @@ import NotificationsPage  from './pages/NotificationsPage';
 import SearchPage         from './pages/SearchPage';
 import EditProfilePage    from './pages/EditProfilePage';
 
+// Handles incoming call globally
+const CallHandler = ({ children }) => {
+  const socketCtx = useSocket();
+  const { user }  = useAuth();
+
+  const [incomingCall, setIncomingCall] = useState(null);
+  const SimplePeer = useRef(null);
+
+  useEffect(() => {
+    import('simple-peer').then(m => { SimplePeer.current = m.default || m; });
+  }, []);
+
+  useEffect(() => {
+    if (!socketCtx) return;
+    const off = socketCtx.onEvent('incoming_call', ({ from, callerName, signal }) => {
+      setIncomingCall({ from, callerName, signal });
+    });
+    return off;
+  }, [socketCtx]);
+
+  const handleAccept = async () => {
+    if (!incomingCall) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      const peer = new SimplePeer.current({
+        initiator: false,
+        trickle: false,
+        stream,
+      });
+      peer.on('signal', (signal) => {
+        socketCtx?.socket.current?.emit('call_accepted', {
+          to: incomingCall.from,
+          signal,
+        });
+      });
+      peer.signal(incomingCall.signal);
+    } catch (err) {
+      console.error('Could not accept call:', err);
+    }
+    setIncomingCall(null);
+  };
+
+  const handleReject = () => {
+    socketCtx?.socket.current?.emit('call_rejected', { to: incomingCall?.from });
+    setIncomingCall(null);
+  };
+
+  return (
+    <>
+      {children}
+      {incomingCall && (
+        <IncomingCall
+          callerName={incomingCall.callerName}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
+      )}
+    </>
+  );
+};
+
 export default function App() {
   return (
     <AuthProvider>
       <SocketProvider>
-        <BrowserRouter>
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              style: {
-                fontFamily: 'DM Sans, sans-serif',
-                fontSize: 14,
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-              },
-            }}
-          />
-          <Routes>
-            {/* Public routes */}
-            <Route path="/login"    element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+        <CallHandler>
+          <BrowserRouter>
+            <Toaster
+              position="top-right"
+              toastOptions={{
+                style: {
+                  fontFamily: 'DM Sans, sans-serif',
+                  fontSize: 14,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                },
+              }}
+            />
+            <Routes>
+              <Route path="/login"    element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
 
-            {/* Protected routes — all share the sidebar Layout */}
-            <Route element={<ProtectedRoute />}>
-              <Route element={<Layout />}>
-                <Route path="/"                       element={<HomePage />} />
-                <Route path="/explore"                element={<ExplorePage />} />
-                <Route path="/search"                 element={<SearchPage />} />
-                <Route path="/messages"               element={<MessagesPage />} />
-                <Route path="/messages/:convId"       element={<MessagesPage />} />
-                <Route path="/notifications"          element={<NotificationsPage />} />
-                <Route path="/profile/:username"      element={<ProfilePage />} />
-                <Route path="/posts/:id"              element={<PostDetailPage />} />
-                <Route path="/settings/profile"       element={<EditProfilePage />} />
+              <Route element={<ProtectedRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="/"                   element={<HomePage />} />
+                  <Route path="/explore"            element={<ExplorePage />} />
+                  <Route path="/search"             element={<SearchPage />} />
+                  <Route path="/messages"           element={<MessagesPage />} />
+                  <Route path="/messages/:convId"   element={<MessagesPage />} />
+                  <Route path="/notifications"      element={<NotificationsPage />} />
+                  <Route path="/profile/:username"  element={<ProfilePage />} />
+                  <Route path="/posts/:id"          element={<PostDetailPage />} />
+                  <Route path="/settings/profile"   element={<EditProfilePage />} />
+                </Route>
               </Route>
-            </Route>
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </CallHandler>
       </SocketProvider>
     </AuthProvider>
   );

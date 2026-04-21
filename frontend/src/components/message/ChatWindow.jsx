@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSocket } from '../../context/SocketContext';
 import Avatar from '../ui/Avatar';
 import { Spinner } from '../ui/Spinner';
+import VideoCall from './VideoCall';
 import { timeAgo } from '../../utils/helpers';
 import toast from 'react-hot-toast';
 
@@ -44,20 +45,21 @@ const ChatWindow = ({ conversation }) => {
   const { user }   = useAuth();
   const socketCtx  = useSocket();
 
-  const [messages, setMessages] = useState([]);
-  const [loading,  setLoading]  = useState(false);
-  const [text,     setText]     = useState('');
-  const [sending,  setSending]  = useState(false);
-  const [typing,   setTyping]   = useState(false);
+  const [messages,    setMessages]    = useState([]);
+  const [loading,     setLoading]     = useState(false);
+  const [text,        setText]        = useState('');
+  const [sending,     setSending]     = useState(false);
+  const [typing,      setTyping]      = useState(false);
+  const [inCall,      setInCall]      = useState(false);
 
-  const bottomRef    = useRef(null);
-  const typingTimer  = useRef(null);
-  const sentIds      = useRef(new Set()); // track IDs we already added optimistically
+  const bottomRef   = useRef(null);
+  const typingTimer = useRef(null);
+  const sentIds     = useRef(new Set());
 
   const convId = conversation?.id;
   const other  = conversation?.members?.[0];
 
-  // ── Load messages ──────────────────────────────────────────
+  // Load messages
   useEffect(() => {
     if (!convId) return;
     setMessages([]);
@@ -73,33 +75,27 @@ const ChatWindow = ({ conversation }) => {
       .finally(() => setLoading(false));
   }, [convId]);
 
-  // ── Join / leave socket room ───────────────────────────────
+  // Join / leave socket room
   useEffect(() => {
     if (!convId || !socketCtx) return;
     socketCtx.joinConversation(convId);
     return () => socketCtx.leaveConversation(convId);
   }, [convId, socketCtx]);
 
-  // ── Listen for incoming messages (from OTHER user only) ────
+  // Incoming messages
   useEffect(() => {
     if (!convId || !socketCtx) return;
-
-    const handler = (msg) => {
-      // Only add if it belongs to this conversation
+    const off = socketCtx.onEvent('new_message', (msg) => {
       if (msg.conversation_id !== convId) return;
-      // Skip if we already have this message (sent by us optimistically)
       if (sentIds.current.has(msg.id)) return;
-      // Skip our own messages — we add them optimistically in handleSend
       if (msg.sender_id === user?.id) return;
       sentIds.current.add(msg.id);
       setMessages(prev => [...prev, msg]);
-    };
-
-    const off = socketCtx.onEvent('new_message', handler);
+    });
     return off;
   }, [convId, socketCtx, user]);
 
-  // ── Typing indicator ───────────────────────────────────────
+  // Typing
   useEffect(() => {
     if (!convId || !socketCtx) return;
     const off = socketCtx.onEvent('typing', ({ convId: cid, userId: uid, typing: t }) => {
@@ -108,12 +104,11 @@ const ChatWindow = ({ conversation }) => {
     return off;
   }, [convId, socketCtx, user]);
 
-  // ── Scroll to bottom ───────────────────────────────────────
+  // Scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, typing]);
 
-  // ── Send message ───────────────────────────────────────────
   const handleSend = async (e) => {
     e.preventDefault();
     const content = text.trim();
@@ -121,38 +116,29 @@ const ChatWindow = ({ conversation }) => {
 
     setText('');
     setSending(true);
-
-    // Stop typing indicator
     if (socketCtx) socketCtx.sendTyping(convId, false);
     clearTimeout(typingTimer.current);
 
-    // Optimistic temp message
     const tempId = 'temp-' + Date.now();
     const tempMsg = {
-      id: tempId,
-      conversation_id: convId,
-      sender_id: user.id,
-      content,
-      type: 'text',
+      id: tempId, conversation_id: convId,
+      sender_id: user.id, content, type: 'text',
       created_at: new Date().toISOString(),
-      username: user.username,
-      avatar_url: user.avatar_url,
+      username: user.username, avatar_url: user.avatar_url,
     };
     sentIds.current.add(tempId);
     setMessages(prev => [...prev, tempMsg]);
 
     try {
       const { data } = await messagesAPI.sendMessage(convId, { content, type: 'text' });
-      // Mark real ID so socket doesn't duplicate it
       sentIds.current.add(data.id);
       sentIds.current.delete(tempId);
-      // Replace temp with real message
       setMessages(prev => prev.map(m =>
         m.id === tempId
           ? { ...data, username: user.username, avatar_url: user.avatar_url }
           : m
       ));
-    } catch (err) {
+    } catch {
       toast.error('Failed to send message');
       sentIds.current.delete(tempId);
       setMessages(prev => prev.filter(m => m.id !== tempId));
@@ -163,10 +149,7 @@ const ChatWindow = ({ conversation }) => {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend(e);
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(e); }
   };
 
   const handleTextChange = (e) => {
@@ -177,125 +160,126 @@ const ChatWindow = ({ conversation }) => {
     typingTimer.current = setTimeout(() => socketCtx.sendTyping(convId, false), 1500);
   };
 
-  // ── Empty state ────────────────────────────────────────────
   if (!conversation) {
     return (
-      <div style={{
-        flex: 1, display: 'flex', alignItems: 'center',
-        justifyContent: 'center', flexDirection: 'column',
-        gap: 14, color: 'var(--text-3)',
-      }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 14, color: 'var(--text-3)' }}>
         <div style={{ fontSize: 52, animation: 'float 3s ease-in-out infinite' }}>✉</div>
-        <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-2)' }}>
-          Your messages
-        </div>
-        <div style={{ fontSize: 14 }}>
-          Go to a profile and click Message to start a chat
-        </div>
+        <div style={{ fontSize: 16, fontWeight: 500, color: 'var(--text-2)' }}>Your messages</div>
+        <div style={{ fontSize: 14 }}>Go to a profile and click Message to start a chat</div>
       </div>
     );
   }
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
+    <>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
 
-      {/* Header */}
-      <div style={{
-        padding: '14px 20px',
-        borderBottom: '1px solid var(--border)',
-        display: 'flex', alignItems: 'center', gap: 12,
-        background: 'var(--surface)', flexShrink: 0,
-      }}>
-        {other && (
-          <>
-            <Avatar user={other} size="sm" />
-            <Link to={`/profile/${other.username}`} style={{ fontWeight: 600, fontSize: 15 }}>
-              {other.username}
-            </Link>
-          </>
-        )}
-        {conversation.is_group && (
-          <span style={{ fontWeight: 600, fontSize: 15 }}>
-            {conversation.name || 'Group chat'}
-          </span>
-        )}
-      </div>
-
-      {/* Messages */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 8px' }}>
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
-            <Spinner size={28} />
-          </div>
-        ) : messages.length === 0 ? (
-          <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--text-3)' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
-            <div style={{ fontSize: 14 }}>
-              Say hello to <strong>{other?.username}</strong>!
-            </div>
-          </div>
-        ) : (
-          <>
-            {messages.map(msg => (
-              <Bubble key={msg.id} msg={msg} isMine={msg.sender_id === user?.id} />
-            ))}
-            {typing && (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                <Avatar user={other} size="xs" />
-                <div style={{
-                  padding: '8px 14px',
-                  borderRadius: '18px 18px 18px 4px',
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  fontSize: 13, color: 'var(--text-3)',
-                }}>
-                  typing…
-                </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </>
-        )}
-      </div>
-
-      {/* Input */}
-      <form
-        onSubmit={handleSend}
-        style={{
-          padding: '12px 16px',
-          borderTop: '1px solid var(--border)',
-          display: 'flex', gap: 10,
+        {/* Header */}
+        <div style={{
+          padding: '14px 20px', borderBottom: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', gap: 12,
           background: 'var(--surface)', flexShrink: 0,
-        }}
-      >
-        <input
-          className="input"
-          value={text}
-          onChange={handleTextChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message… (Enter to send)"
-          style={{ flex: 1, fontSize: 14 }}
-          autoFocus
-        />
-        <button
-          type="submit"
-          disabled={!text.trim() || sending}
-          style={{
-            padding: '10px 20px', fontSize: 14, fontWeight: 600,
-            background: text.trim() ? 'var(--text-1)' : 'var(--border)',
-            color: text.trim() ? '#fff' : 'var(--text-3)',
-            border: 'none', borderRadius: 'var(--radius-sm)',
-            cursor: text.trim() ? 'pointer' : 'not-allowed',
-            transition: 'all .15s',
-            display: 'flex', alignItems: 'center', gap: 6,
-            flexShrink: 0,
-          }}
-        >
-          {sending ? <Spinner size={14} color="#fff" /> : 'Send'}
-        </button>
-      </form>
+        }}>
+          {other && (
+            <>
+              <Avatar user={other} size="sm" />
+              <Link to={`/profile/${other.username}`} style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>
+                {other.username}
+              </Link>
+            </>
+          )}
+          {conversation.is_group && (
+            <span style={{ fontWeight: 600, fontSize: 15, flex: 1 }}>
+              {conversation.name || 'Group chat'}
+            </span>
+          )}
 
-    </div>
+          {/* Video call button */}
+          {other && (
+            <button
+              onClick={() => setInCall(true)}
+              title="Start video call"
+              style={{
+                width: 36, height: 36, borderRadius: '50%',
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                cursor: 'pointer', fontSize: 18,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all .15s', flexShrink: 0,
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = '#2d6a4f'; e.currentTarget.style.border = 'none'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'var(--bg)'; e.currentTarget.style.border = '1px solid var(--border)'; }}
+            >
+              📹
+            </button>
+          )}
+        </div>
+
+        {/* Messages */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px 8px' }}>
+          {loading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
+              <Spinner size={28} />
+            </div>
+          ) : messages.length === 0 ? (
+            <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--text-3)' }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>👋</div>
+              <div style={{ fontSize: 14 }}>Say hello to <strong>{other?.username}</strong>!</div>
+            </div>
+          ) : (
+            <>
+              {messages.map(msg => (
+                <Bubble key={msg.id} msg={msg} isMine={msg.sender_id === user?.id} />
+              ))}
+              {typing && (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                  <Avatar user={other} size="xs" />
+                  <div style={{ padding: '8px 14px', borderRadius: '18px 18px 18px 4px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 13, color: 'var(--text-3)' }}>
+                    typing…
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </>
+          )}
+        </div>
+
+        {/* Input */}
+        <form onSubmit={handleSend} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, background: 'var(--surface)', flexShrink: 0 }}>
+          <input
+            className="input"
+            value={text}
+            onChange={handleTextChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type a message… (Enter to send)"
+            style={{ flex: 1, fontSize: 14 }}
+            autoFocus
+          />
+          <button
+            type="submit"
+            disabled={!text.trim() || sending}
+            style={{
+              padding: '10px 20px', fontSize: 14, fontWeight: 600,
+              background: text.trim() ? 'var(--text-1)' : 'var(--border)',
+              color: text.trim() ? '#fff' : 'var(--text-3)',
+              border: 'none', borderRadius: 'var(--radius-sm)',
+              cursor: text.trim() ? 'pointer' : 'not-allowed',
+              transition: 'all .15s', display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+            }}
+          >
+            {sending ? <Spinner size={14} color="#fff" /> : 'Send'}
+          </button>
+        </form>
+      </div>
+
+      {/* Video call overlay */}
+      {inCall && (
+        <VideoCall
+          conversation={conversation}
+          otherUser={other}
+          onClose={() => setInCall(false)}
+        />
+      )}
+    </>
   );
 };
 
