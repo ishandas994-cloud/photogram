@@ -3,8 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from './context/AuthContext';
 import { SocketProvider } from './context/SocketContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { useSocket } from './context/SocketContext';
-import { useAuth } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import IncomingCall from './components/message/IncomingCall';
@@ -13,6 +13,7 @@ import LoginPage          from './pages/LoginPage';
 import RegisterPage       from './pages/RegisterPage';
 import HomePage           from './pages/HomePage';
 import ExplorePage        from './pages/ExplorePage';
+import ReelsPage          from './pages/ReelsPage';
 import ProfilePage        from './pages/ProfilePage';
 import PostDetailPage     from './pages/PostDetailPage';
 import MessagesPage       from './pages/MessagesPage';
@@ -20,17 +21,10 @@ import NotificationsPage  from './pages/NotificationsPage';
 import SearchPage         from './pages/SearchPage';
 import EditProfilePage    from './pages/EditProfilePage';
 
-// Handles incoming call globally
 const CallHandler = ({ children }) => {
   const socketCtx = useSocket();
-  const { user }  = useAuth();
-
   const [incomingCall, setIncomingCall] = useState(null);
-  const SimplePeer = useRef(null);
-
-  useEffect(() => {
-    import('simple-peer').then(m => { SimplePeer.current = m.default || m; });
-  }, []);
+  const pcRef = useRef(null);
 
   useEffect(() => {
     if (!socketCtx) return;
@@ -44,21 +38,17 @@ const CallHandler = ({ children }) => {
     if (!incomingCall) return;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      const peer = new SimplePeer.current({
-        initiator: false,
-        trickle: false,
-        stream,
-      });
-      peer.on('signal', (signal) => {
-        socketCtx?.socket.current?.emit('call_accepted', {
-          to: incomingCall.from,
-          signal,
-        });
-      });
-      peer.signal(incomingCall.signal);
-    } catch (err) {
-      console.error('Could not accept call:', err);
-    }
+      const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+      pcRef.current = pc;
+      stream.getTracks().forEach(t => pc.addTrack(t, stream));
+      pc.onicecandidate = (e) => {
+        if (e.candidate) socketCtx?.socket.current?.emit('ice_candidate', { to: incomingCall.from, candidate: e.candidate });
+      };
+      await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.signal));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      socketCtx?.socket.current?.emit('call_accepted', { to: incomingCall.from, signal: answer });
+    } catch (err) { console.error('Accept call error:', err); }
     setIncomingCall(null);
   };
 
@@ -70,57 +60,46 @@ const CallHandler = ({ children }) => {
   return (
     <>
       {children}
-      {incomingCall && (
-        <IncomingCall
-          callerName={incomingCall.callerName}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      )}
+      {incomingCall && <IncomingCall callerName={incomingCall.callerName} onAccept={handleAccept} onReject={handleReject} />}
     </>
   );
 };
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SocketProvider>
-        <CallHandler>
-          <BrowserRouter>
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                style: {
-                  fontFamily: 'DM Sans, sans-serif',
-                  fontSize: 14,
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                },
-              }}
-            />
-            <Routes>
-              <Route path="/login"    element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+    <ThemeProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <CallHandler>
+            <BrowserRouter>
+              <Toaster position="top-right" toastOptions={{ style: { fontFamily: 'DM Sans, sans-serif', fontSize: 14, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' } }} />
+              <Routes>
+                <Route path="/login"    element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route element={<Layout />}>
-                  <Route path="/"                   element={<HomePage />} />
-                  <Route path="/explore"            element={<ExplorePage />} />
-                  <Route path="/search"             element={<SearchPage />} />
-                  <Route path="/messages"           element={<MessagesPage />} />
-                  <Route path="/messages/:convId"   element={<MessagesPage />} />
-                  <Route path="/notifications"      element={<NotificationsPage />} />
-                  <Route path="/profile/:username"  element={<ProfilePage />} />
-                  <Route path="/posts/:id"          element={<PostDetailPage />} />
-                  <Route path="/settings/profile"   element={<EditProfilePage />} />
+                <Route element={<ProtectedRoute />}>
+                  {/* Reels has no sidebar */}
+                  <Route path="/reels" element={<ReelsPage />} />
+
+                  <Route element={<Layout />}>
+                    <Route path="/"                   element={<HomePage />} />
+                    <Route path="/explore"            element={<ExplorePage />} />
+                    <Route path="/search"             element={<SearchPage />} />
+                    <Route path="/messages"           element={<MessagesPage />} />
+                    <Route path="/messages/:convId"   element={<MessagesPage />} />
+                    <Route path="/notifications"      element={<NotificationsPage />} />
+                    <Route path="/profile/:username"  element={<ProfilePage />} />
+                    <Route path="/posts/:id"          element={<PostDetailPage />} />
+                    <Route path="/settings/profile"   element={<EditProfilePage />} />
+                  </Route>
                 </Route>
-              </Route>
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </BrowserRouter>
-        </CallHandler>
-      </SocketProvider>
-    </AuthProvider>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </BrowserRouter>
+          </CallHandler>
+        </SocketProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
