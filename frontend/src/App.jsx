@@ -9,17 +9,17 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import Layout from './components/layout/Layout';
 import IncomingCall from './components/message/IncomingCall';
 
-import LoginPage          from './pages/LoginPage';
-import RegisterPage       from './pages/RegisterPage';
-import HomePage           from './pages/HomePage';
-import ExplorePage        from './pages/ExplorePage';
-import ReelsPage          from './pages/ReelsPage';
-import ProfilePage        from './pages/ProfilePage';
-import PostDetailPage     from './pages/PostDetailPage';
-import MessagesPage       from './pages/MessagesPage';
-import NotificationsPage  from './pages/NotificationsPage';
-import SearchPage         from './pages/SearchPage';
-import EditProfilePage    from './pages/EditProfilePage';
+import LoginPage         from './pages/LoginPage';
+import RegisterPage      from './pages/RegisterPage';
+import HomePage          from './pages/HomePage';
+import ExplorePage       from './pages/ExplorePage';
+import ReelsPage         from './pages/ReelsPage';
+import ProfilePage       from './pages/ProfilePage';
+import PostDetailPage    from './pages/PostDetailPage';
+import MessagesPage      from './pages/MessagesPage';
+import NotificationsPage from './pages/NotificationsPage';
+import SearchPage        from './pages/SearchPage';
+import EditProfilePage   from './pages/EditProfilePage';
 
 const CallHandler = ({ children }) => {
   const socketCtx = useSocket();
@@ -42,7 +42,8 @@ const CallHandler = ({ children }) => {
       pcRef.current = pc;
       stream.getTracks().forEach(t => pc.addTrack(t, stream));
       pc.onicecandidate = (e) => {
-        if (e.candidate) socketCtx?.socket.current?.emit('ice_candidate', { to: incomingCall.from, candidate: e.candidate });
+        if (e.candidate)
+          socketCtx?.socket.current?.emit('ice_candidate', { to: incomingCall.from, candidate: e.candidate });
       };
       await pc.setRemoteDescription(new RTCSessionDescription(incomingCall.signal));
       const answer = await pc.createAnswer();
@@ -60,7 +61,13 @@ const CallHandler = ({ children }) => {
   return (
     <>
       {children}
-      {incomingCall && <IncomingCall callerName={incomingCall.callerName} onAccept={handleAccept} onReject={handleReject} />}
+      {incomingCall && (
+        <IncomingCall
+          callerName={incomingCall.callerName}
+          onAccept={handleAccept}
+          onReject={handleReject}
+        />
+      )}
     </>
   );
 };
@@ -72,15 +79,29 @@ export default function App() {
         <SocketProvider>
           <CallHandler>
             <BrowserRouter>
-              <Toaster position="top-right" toastOptions={{ style: { fontFamily: 'DM Sans, sans-serif', fontSize: 14, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' } }} />
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  style: {
+                    fontFamily: 'DM Sans, sans-serif',
+                    fontSize: 14, borderRadius: 10,
+                    border: '1px solid var(--border)',
+                    background: 'var(--surface)',
+                    color: 'var(--text-1)',
+                  },
+                }}
+              />
               <Routes>
+                {/* Public */}
                 <Route path="/login"    element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
                 <Route element={<ProtectedRoute />}>
-                  {/* Reels has no sidebar */}
+
+                  {/* ── Full screen — NO sidebar ── */}
                   <Route path="/reels" element={<ReelsPage />} />
 
+                  {/* ── Normal pages — WITH sidebar ── */}
                   <Route element={<Layout />}>
                     <Route path="/"                   element={<HomePage />} />
                     <Route path="/explore"            element={<ExplorePage />} />
