@@ -20,6 +20,7 @@ import MessagesPage      from './pages/MessagesPage';
 import NotificationsPage from './pages/NotificationsPage';
 import SearchPage        from './pages/SearchPage';
 import EditProfilePage   from './pages/EditProfilePage';
+import SettingsPage      from './pages/SettingsPage';
 
 const CallHandler = ({ children }) => {
   const socketCtx = useSocket();
@@ -49,7 +50,7 @@ const CallHandler = ({ children }) => {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       socketCtx?.socket.current?.emit('call_accepted', { to: incomingCall.from, signal: answer });
-    } catch (err) { console.error('Accept call error:', err); }
+    } catch (err) { console.error(err); }
     setIncomingCall(null);
   };
 
@@ -61,13 +62,7 @@ const CallHandler = ({ children }) => {
   return (
     <>
       {children}
-      {incomingCall && (
-        <IncomingCall
-          callerName={incomingCall.callerName}
-          onAccept={handleAccept}
-          onReject={handleReject}
-        />
-      )}
+      {incomingCall && <IncomingCall callerName={incomingCall.callerName} onAccept={handleAccept} onReject={handleReject} />}
     </>
   );
 };
@@ -79,29 +74,18 @@ export default function App() {
         <SocketProvider>
           <CallHandler>
             <BrowserRouter>
-              <Toaster
-                position="top-right"
-                toastOptions={{
-                  style: {
-                    fontFamily: 'DM Sans, sans-serif',
-                    fontSize: 14, borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'var(--surface)',
-                    color: 'var(--text-1)',
-                  },
-                }}
-              />
+              <Toaster position="top-right" toastOptions={{
+                style: { fontFamily: 'DM Sans, sans-serif', fontSize: 14, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-1)' },
+              }} />
               <Routes>
-                {/* Public */}
                 <Route path="/login"    element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
 
                 <Route element={<ProtectedRoute />}>
-
-                  {/* ── Full screen — NO sidebar ── */}
+                  {/* Full screen — no sidebar */}
                   <Route path="/reels" element={<ReelsPage />} />
 
-                  {/* ── Normal pages — WITH sidebar ── */}
+                  {/* With sidebar */}
                   <Route element={<Layout />}>
                     <Route path="/"                   element={<HomePage />} />
                     <Route path="/explore"            element={<ExplorePage />} />
@@ -112,6 +96,7 @@ export default function App() {
                     <Route path="/profile/:username"  element={<ProfilePage />} />
                     <Route path="/posts/:id"          element={<PostDetailPage />} />
                     <Route path="/settings/profile"   element={<EditProfilePage />} />
+                    <Route path="/settings"           element={<SettingsPage />} />
                   </Route>
                 </Route>
 
