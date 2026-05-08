@@ -277,3 +277,115 @@ exports.getByHashtag = async (req, res) => {
     res.status(500).json({ error: 'Hashtag load failed.' });
   }
 };
+// GET /posts/saved
+exports.getSavedPosts = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await db.query(
+      `SELECT p.*,
+              u.username, u.full_name, u.avatar_url, u.is_verified,
+              (SELECT COUNT(*) FROM post_likes WHERE post_id=p.id) AS like_count,
+              (SELECT COUNT(*) FROM comments WHERE post_id=p.id AND is_deleted=FALSE) AS comment_count,
+              TRUE AS is_saved, 
+              EXISTS(SELECT 1 FROM post_likes WHERE post_id=p.id AND user_id=$1) AS is_liked,
+              (SELECT json_agg(pm ORDER BY pm.position)
+               FROM post_media pm WHERE pm.post_id=p.id) AS media
+       FROM saved_posts sp
+       JOIN posts p ON p.id = sp.post_id
+       JOIN users u ON u.id = p.user_id
+       WHERE sp.user_id = $1 AND p.is_archived = FALSE
+       ORDER BY sp.created_at DESC`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load saved posts.' });
+  }
+};
+
+// GET /posts/liked
+exports.getLikedPosts = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await db.query(
+      `SELECT p.*,
+              u.username, u.full_name, u.avatar_url, u.is_verified,
+              (SELECT COUNT(*) FROM post_likes WHERE post_id=p.id) AS like_count,
+              (SELECT COUNT(*) FROM comments WHERE post_id=p.id AND is_deleted=FALSE) AS comment_count,
+              TRUE AS is_liked,
+              TRUE AS is_saved,
+              (SELECT json_agg(pm ORDER BY pm.position)
+               FROM post_media pm WHERE pm.post_id=p.id) AS media
+       FROM post_likes pl
+       JOIN posts p ON p.id = pl.post_id
+       JOIN users u ON u.id = p.user_id
+       WHERE pl.user_id = $1 AND p.is_archived = FALSE
+       ORDER BY pl.created_at DESC`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load liked posts.' });
+  }
+};
+// ── GET /posts/saved ────────────────────────────────────────
+exports.getSavedPosts = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await db.query(
+      `SELECT
+         p.id, p.user_id, p.caption, p.type, p.created_at,
+         u.username, u.full_name, u.avatar_url, u.is_verified,
+         COALESCE((SELECT COUNT(*) FROM post_likes WHERE post_id = p.id), 0) AS like_count,
+         COALESCE((SELECT COUNT(*) FROM comments WHERE post_id = p.id AND is_deleted = FALSE), 0) AS comment_count,
+         TRUE AS is_saved,
+         EXISTS(SELECT 1 FROM post_likes WHERE post_id = p.id AND user_id = $1) AS is_liked,
+         (SELECT json_agg(pm ORDER BY pm.position)
+          FROM post_media pm WHERE pm.post_id = p.id) AS media
+       FROM saved_posts sp
+       JOIN posts p ON p.id = sp.post_id
+       JOIN users u ON u.id = p.user_id
+       WHERE sp.user_id = $1
+         AND p.is_archived = FALSE
+         AND u.is_active = TRUE
+       ORDER BY sp.created_at DESC`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('getSavedPosts error:', err.message);
+    res.status(500).json({ error: 'Failed to load saved posts.' });
+  }
+};
+
+// ── GET /posts/liked ────────────────────────────────────────
+exports.getLikedPosts = async (req, res) => {
+  const userId = req.user.id;
+  try {
+    const { rows } = await db.query(
+      `SELECT
+         p.id, p.user_id, p.caption, p.type, p.created_at,
+         u.username, u.full_name, u.avatar_url, u.is_verified,
+         COALESCE((SELECT COUNT(*) FROM post_likes WHERE post_id = p.id), 0) AS like_count,
+         COALESCE((SELECT COUNT(*) FROM comments WHERE post_id = p.id AND is_deleted = FALSE), 0) AS comment_count,
+         TRUE AS is_liked,
+         EXISTS(SELECT 1 FROM saved_posts WHERE post_id = p.id AND user_id = $1) AS is_saved,
+         (SELECT json_agg(pm ORDER BY pm.position)
+          FROM post_media pm WHERE pm.post_id = p.id) AS media
+       FROM post_likes pl
+       JOIN posts p ON p.id = pl.post_id
+       JOIN users u ON u.id = p.user_id
+       WHERE pl.user_id = $1
+         AND p.is_archived = FALSE
+         AND u.is_active = TRUE
+       ORDER BY pl.created_at DESC`,
+      [userId]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error('getLikedPosts error:', err.message);
+    res.status(500).json({ error: 'Failed to load liked posts.' });
+  }
+};

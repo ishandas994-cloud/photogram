@@ -9,7 +9,11 @@ router.get('/feed',          requireAuth,  postCtrl.getFeed);
 router.get('/explore',       optionalAuth, postCtrl.explore);
 router.get('/hashtag/:tag',  optionalAuth, postCtrl.getByHashtag);
 
-router.post('/',             requireAuth,  upload.array('media',10), postCtrl.createPost);
+// ← THESE MUST BE BEFORE /:id
+router.get('/saved',         requireAuth,  postCtrl.getSavedPosts);
+router.get('/liked',         requireAuth,  postCtrl.getLikedPosts);
+
+router.post('/',             requireAuth,  upload.array('media', 10), postCtrl.createPost);
 router.get('/:id',           optionalAuth, postCtrl.getPost);
 router.delete('/:id',        requireAuth,  postCtrl.deletePost);
 
