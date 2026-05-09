@@ -52,24 +52,32 @@ exports.getStoryFeed = async (req, res) => {
              'created_at',    s.created_at,
              'viewed', EXISTS(
                SELECT 1 FROM story_views sv
-               WHERE sv.story_id=s.id AND sv.viewer_id=$1)
+               WHERE sv.story_id = s.id AND sv.viewer_id = $1)
            ) ORDER BY s.created_at ASC
          ) AS stories,
          BOOL_AND(EXISTS(
            SELECT 1 FROM story_views sv
-           WHERE sv.story_id=s.id AND sv.viewer_id=$1
-         )) AS all_viewed
+           WHERE sv.story_id = s.id AND sv.viewer_id = $1
+         )) AS all_viewed,
+         -- put own stories first (order_priority = 0), others after
+         CASE WHEN u.id = $1 THEN 0 ELSE 1 END AS order_priority
        FROM stories s
-       JOIN users u ON u.id=s.user_id
-       WHERE s.user_id IN (
-         SELECT following_id FROM follows
-         WHERE follower_id=$1 AND status='accepted'
+       JOIN users u ON u.id = s.user_id
+       WHERE (
+         -- own stories
+         s.user_id = $1
+         OR
+         -- followed users stories
+         s.user_id IN (
+           SELECT following_id FROM follows
+           WHERE follower_id = $1 AND status = 'accepted'
+         )
        )
          AND s.expires_at > NOW()
-         AND s.is_highlight=FALSE
-         AND u.is_active=TRUE
+         AND s.is_highlight = FALSE
+         AND u.is_active = TRUE
        GROUP BY u.id, u.username, u.avatar_url, u.is_verified
-       ORDER BY all_viewed ASC, MAX(s.created_at) DESC`,
+       ORDER BY order_priority ASC, all_viewed ASC, MAX(s.created_at) DESC`,
       [userId]
     );
     res.json(rows);
@@ -78,7 +86,6 @@ exports.getStoryFeed = async (req, res) => {
     res.status(500).json({ error: 'Stories feed failed.' });
   }
 };
-
 // ─── GET /api/stories/:id ───────────────────────────────────
 exports.getStory = async (req, res) => {
   const { rows:[story] } = await db.query(
