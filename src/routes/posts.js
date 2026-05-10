@@ -24,5 +24,14 @@ router.delete('/:id/save',   requireAuth,  postCtrl.unsavePost);
 
 router.get('/:id/comments',  optionalAuth, commentCtrl.getComments);
 router.post('/:id/comments', requireAuth,  commentCtrl.addComment);
+router.put('/:id', requireAuth, postCtrl.editPost);
+
+
+router.get('/collections',                   requireAuth, postCtrl.getCollections);
+router.post('/collections',                  requireAuth, postCtrl.createCollection);
+router.delete('/collections/:id',            requireAuth, postCtrl.deleteCollection);
+router.get('/collections/:id/posts',         requireAuth, postCtrl.getCollectionPosts);
+router.post('/collections/:id/posts',        requireAuth, postCtrl.addToCollection);
+router.delete('/collections/:id/posts/:postId', requireAuth, postCtrl.removeFromCollection);
 
 module.exports = router;

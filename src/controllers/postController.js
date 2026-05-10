@@ -389,3 +389,116 @@ exports.getLikedPosts = async (req, res) => {
     res.status(500).json({ error: 'Failed to load liked posts.' });
   }
 };
+exports.editPost = async (req, res) => {
+  const { id } = req.params;
+  const { caption, location } = req.body;
+  try {
+    const { rows: [post] } = await db.query(
+      'SELECT user_id FROM posts WHERE id=$1', [id]
+    );
+    if (!post) return res.status(404).json({ error: 'Post not found.' });
+    if (post.user_id !== req.user.id)
+      return res.status(403).json({ error: 'Not your post.' });
+
+    const { rows: [updated] } = await db.query(
+      `UPDATE posts SET
+         caption  = COALESCE($1, caption),
+         location = COALESCE($2, location),
+         updated_at = NOW()
+       WHERE id = $3
+       RETURNING *`,
+      [caption ?? null, location ?? null, id]
+    );
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Edit failed.' });
+  }
+};
+exports.getCollections = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT c.*,
+         COUNT(cp.post_id) AS post_count,
+         (SELECT pm.thumbnail_url FROM post_media pm
+          JOIN collection_posts cp2 ON cp2.post_id = pm.post_id
+          WHERE cp2.collection_id = c.id
+          ORDER BY cp2.added_at DESC LIMIT 1) AS cover_url
+       FROM collections c
+       LEFT JOIN collection_posts cp ON cp.collection_id = c.id
+       WHERE c.user_id = $1
+       GROUP BY c.id
+       ORDER BY c.created_at DESC`,
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+};
+
+exports.createCollection = async (req, res) => {
+  const { name } = req.body;
+  if (!name?.trim()) return res.status(400).json({ error: 'Name required.' });
+  try {
+    const { rows: [c] } = await db.query(
+      'INSERT INTO collections (user_id, name) VALUES ($1,$2) RETURNING *',
+      [req.user.id, name.trim()]
+    );
+    res.status(201).json(c);
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+};
+
+exports.deleteCollection = async (req, res) => {
+  await db.query(
+    'DELETE FROM collections WHERE id=$1 AND user_id=$2',
+    [req.params.id, req.user.id]
+  );
+  res.json({ message: 'Deleted.' });
+};
+
+exports.getCollectionPosts = async (req, res) => {
+  try {
+    const { rows } = await db.query(
+      `SELECT p.*, u.username, u.avatar_url,
+         (SELECT json_agg(pm ORDER BY pm.position)
+          FROM post_media pm WHERE pm.post_id=p.id) AS media
+       FROM collection_posts cp
+       JOIN posts p ON p.id=cp.post_id
+       JOIN users u ON u.id=p.user_id
+       WHERE cp.collection_id=$1
+       ORDER BY cp.added_at DESC`,
+      [req.params.id]
+    );
+    res.json(rows);
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+};
+
+exports.addToCollection = async (req, res) => {
+  const { post_id } = req.body;
+  if (!post_id) return res.status(400).json({ error: 'post_id required.' });
+  try {
+    // verify collection belongs to user
+    const { rows: [c] } = await db.query(
+      'SELECT id FROM collections WHERE id=$1 AND user_id=$2',
+      [req.params.id, req.user.id]
+    );
+    if (!c) return res.status(404).json({ error: 'Collection not found.' });
+    await db.query(
+      'INSERT INTO collection_posts VALUES ($1,$2) ON CONFLICT DO NOTHING',
+      [req.params.id, post_id]
+    );
+    // Also save the post
+    await db.query(
+      'INSERT INTO saved_posts (user_id, post_id) VALUES ($1,$2) ON CONFLICT DO NOTHING',
+      [req.user.id, post_id]
+    );
+    res.json({ message: 'Added.' });
+  } catch (err) { res.status(500).json({ error: 'Failed.' }); }
+};
+
+exports.removeFromCollection = async (req, res) => {
+  await db.query(
+    'DELETE FROM collection_posts WHERE collection_id=$1 AND post_id=$2',
+    [req.params.id, req.params.postId]
+  );
+  res.json({ message: 'Removed.' });
+};
