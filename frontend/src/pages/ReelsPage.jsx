@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { postsAPI, commentsAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import Avatar from '../components/ui/Avatar';
 import { Spinner } from '../components/ui/Spinner';
+import ShareSheet from '../components/post/ShareSheet';
 import { formatCount, timeAgo } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
@@ -19,7 +20,7 @@ const LikeFloat = ({ x, y, onDone }) => {
   return (
     <div style={{
       position: 'absolute', left: x - 30, top: y - 30,
-      fontSize: 56, pointerEvents: 'none', zIndex: 99,
+      fontSize: 60, pointerEvents: 'none', zIndex: 99,
       animation: 'likeFloat .8s ease forwards',
     }}>❤️</div>
   );
@@ -72,7 +73,7 @@ const CommentDrawer = ({ post, onClose }) => {
           {loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spinner color="#fff" /></div>
           ) : comments.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '28px 0', color: 'rgba(255,255,255,.4)', fontSize: 13 }}>No comments yet</div>
+            <div style={{ textAlign: 'center', padding: '28px 0', color: 'rgba(255,255,255,.4)', fontSize: 13 }}>No comments yet — be first!</div>
           ) : (
             comments.map(c => (
               <div key={c.id} style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
@@ -92,11 +93,7 @@ const CommentDrawer = ({ post, onClose }) => {
             <input
               value={text} onChange={e => setText(e.target.value)}
               placeholder="Add a comment…"
-              style={{
-                flex: 1, background: 'rgba(255,255,255,.1)', border: 'none',
-                borderRadius: 20, padding: '8px 14px', color: '#fff',
-                fontSize: 13, outline: 'none', fontFamily: 'var(--font)',
-              }}
+              style={{ flex: 1, background: 'rgba(255,255,255,.1)', border: 'none', borderRadius: 20, padding: '8px 14px', color: '#fff', fontSize: 13, outline: 'none', fontFamily: 'var(--font)' }}
             />
             {text.trim() && (
               <button type="submit" style={{ color: '#60cdff', fontWeight: 600, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer' }}>Post</button>
@@ -110,15 +107,16 @@ const CommentDrawer = ({ post, onClose }) => {
 
 // ── Single Reel ──────────────────────────────────────────────
 const ReelItem = ({ post, isActive }) => {
-  const { user }        = useAuth();
-  const videoRef        = useRef(null);
-  const [playing,  setPlaying]      = useState(false);
-  const [muted,    setMuted]        = useState(false); // sound ON by default
-  const [liked,    setLiked]        = useState(post.is_liked);
-  const [likes,    setLikes]        = useState(parseInt(post.like_count) || 0);
-  const [saved,    setSaved]        = useState(post.is_saved);
-  const [comments, setComments]     = useState(parseInt(post.comment_count) || 0);
+  const { user }           = useAuth();
+  const videoRef           = useRef(null);
+  const [playing,      setPlaying]      = useState(false);
+  const [muted,        setMuted]        = useState(false);
+  const [liked,        setLiked]        = useState(post.is_liked);
+  const [likes,        setLikes]        = useState(parseInt(post.like_count) || 0);
+  const [saved,        setSaved]        = useState(post.is_saved);
+  const [comments,     setComments]     = useState(parseInt(post.comment_count) || 0);
   const [showComments, setShowComments] = useState(false);
+  const [showShare,    setShowShare]    = useState(false);
   const [likeAnims,    setLikeAnims]    = useState([]);
   const [progress,     setProgress]     = useState(0);
   const [expanded,     setExpanded]     = useState(false);
@@ -129,7 +127,6 @@ const ReelItem = ({ post, isActive }) => {
   const thumbSrc = getUrl(media?.thumbnail_url);
   const fallback = `https://picsum.photos/seed/${post.id}/400/700`;
 
-  // Auto play/pause
   useEffect(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -137,19 +134,15 @@ const ReelItem = ({ post, isActive }) => {
       v.muted = muted;
       v.play().then(() => setPlaying(true)).catch(() => {});
     } else {
-      v.pause();
-      v.currentTime = 0;
-      setPlaying(false);
-      setProgress(0);
+      v.pause(); v.currentTime = 0;
+      setPlaying(false); setProgress(0);
     }
   }, [isActive]);
 
-  // Sync muted state to video
   useEffect(() => {
     if (videoRef.current) videoRef.current.muted = muted;
   }, [muted]);
 
-  // Progress bar
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !isVideo) return;
@@ -172,8 +165,7 @@ const ReelItem = ({ post, isActive }) => {
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     if (!liked) {
-      setLiked(true);
-      setLikes(l => l + 1);
+      setLiked(true); setLikes(l => l + 1);
       postsAPI.likePost(post.id).catch(() => {});
     }
     setLikeAnims(p => [...p, { id: Date.now(), x, y }]);
@@ -182,11 +174,11 @@ const ReelItem = ({ post, isActive }) => {
   const handleLike = async (e) => {
     e.stopPropagation();
     const was = liked;
-    setLiked(!was); setLikes(l => was ? l-1 : l+1);
+    setLiked(!was); setLikes(l => was ? l - 1 : l + 1);
     try {
       if (was) await postsAPI.unlikePost(post.id);
       else     await postsAPI.likePost(post.id);
-    } catch { setLiked(was); setLikes(l => was ? l+1 : l-1); }
+    } catch { setLiked(was); setLikes(l => was ? l + 1 : l - 1); }
   };
 
   const handleSave = async (e) => {
@@ -200,33 +192,28 @@ const ReelItem = ({ post, isActive }) => {
 
   const caption = post.caption || '';
 
+  // Pause when share or comments open
+  useEffect(() => {
+    if (showShare || showComments) {
+      videoRef.current?.pause();
+      setPlaying(false);
+    } else if (isActive && videoRef.current?.paused) {
+      videoRef.current?.play().catch(() => {});
+      setPlaying(true);
+    }
+  }, [showShare, showComments]);
+
   return (
-    <div style={{
-      position: 'relative', width: '100%', height: '100%',
-      background: '#000', overflow: 'hidden', borderRadius: 'inherit',
-    }}>
+    <div style={{ position: 'relative', width: '100%', height: '100%', background: '#000', overflow: 'hidden', borderRadius: 'inherit' }}>
+
       {/* Media */}
-      <div
-        style={{ position: 'absolute', inset: 0, cursor: 'pointer' }}
-        onClick={togglePlay}
-        onDoubleClick={handleDoubleTap}
-      >
+      <div style={{ position: 'absolute', inset: 0, cursor: 'pointer' }} onClick={togglePlay} onDoubleClick={handleDoubleTap}>
         {isVideo && mediaSrc ? (
-          <video
-            ref={videoRef}
-            src={mediaSrc}
-            poster={thumbSrc || fallback}
-            loop playsInline
-            muted={muted}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
+          <video ref={videoRef} src={mediaSrc} poster={thumbSrc || fallback} loop playsInline muted={muted}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
-          <img
-            src={mediaSrc || fallback}
-            alt=""
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-            onError={e => { e.target.onerror = null; e.target.src = fallback; }}
-          />
+          <img src={mediaSrc || fallback} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            onError={e => { e.target.onerror = null; e.target.src = fallback; }} />
         )}
       </div>
 
@@ -237,26 +224,20 @@ const ReelItem = ({ post, isActive }) => {
         </div>
       )}
 
-      {/* Pause icon */}
+      {/* Play indicator */}
       {!playing && isVideo && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 4, pointerEvents: 'none' }}>
           <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(0,0,0,.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>▶</div>
         </div>
       )}
 
-      {/* Heart float */}
+      {/* Heart floats */}
       {likeAnims.map(a => (
         <LikeFloat key={a.id} x={a.x} y={a.y} onDone={() => setLikeAnims(p => p.filter(x => x.id !== a.id))} />
       ))}
 
       {/* Bottom gradient + user info */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 60,
-        padding: '60px 12px 16px',
-        background: 'linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.2) 70%, transparent 100%)',
-        zIndex: 3,
-      }}>
-        {/* User */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 60, padding: '60px 12px 16px', background: 'linear-gradient(to top, rgba(0,0,0,.88) 0%, rgba(0,0,0,.2) 70%, transparent 100%)', zIndex: 3 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <Link to={`/profile/${post.username}`} onClick={e => e.stopPropagation()}>
             <Avatar user={{ username: post.username, avatar_url: post.avatar_url }} size="sm" />
@@ -267,8 +248,6 @@ const ReelItem = ({ post, isActive }) => {
           </Link>
           {post.is_verified && <span style={{ color: '#60cdff', fontSize: 12 }}>✓</span>}
         </div>
-
-        {/* Caption */}
         {caption && (
           <p style={{ color: '#fff', fontSize: 12, lineHeight: 1.5, margin: 0, textShadow: '0 1px 3px rgba(0,0,0,.6)' }}>
             {expanded || caption.length <= 70 ? caption : caption.slice(0, 70) + '… '}
@@ -282,26 +261,21 @@ const ReelItem = ({ post, isActive }) => {
         )}
       </div>
 
-      {/* Right action buttons */}
-      <div style={{
-        position: 'absolute', right: 8, bottom: 60,
-        display: 'flex', flexDirection: 'column',
-        alignItems: 'center', gap: 18, zIndex: 5,
-      }}>
+      {/* ── Right action buttons ── */}
+      <div style={{ position: 'absolute', right: 8, bottom: 60, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, zIndex: 5 }}>
+
         {/* Like */}
         <div style={{ textAlign: 'center' }}>
           <button onClick={handleLike} style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 28, color: liked ? '#e63946' : '#fff',
+            fontSize: 30, color: liked ? '#e63946' : '#fff',
             filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
-            transition: 'transform .15s, color .15s',
-            display: 'block',
+            transition: 'transform .15s, color .15s', display: 'block',
+            animation: liked ? 'heartPop .35s ease' : 'none',
           }}
             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-          >
-            {liked ? '♥' : '♡'}
-          </button>
+          >{liked ? '♥' : '♡'}</button>
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>
             {formatCount(likes)}
           </span>
@@ -311,8 +285,7 @@ const ReelItem = ({ post, isActive }) => {
         <div style={{ textAlign: 'center' }}>
           <button onClick={e => { e.stopPropagation(); setShowComments(true); }} style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 26, color: '#fff',
-            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
+            fontSize: 26, color: '#fff', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
             transition: 'transform .15s', display: 'block',
           }}
             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
@@ -320,6 +293,29 @@ const ReelItem = ({ post, isActive }) => {
           >💬</button>
           <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>
             {formatCount(comments)}
+          </span>
+        </div>
+
+        {/* Share — Instagram style */}
+        <div style={{ textAlign: 'center' }}>
+          <button
+            onClick={e => { e.stopPropagation(); setShowShare(true); }}
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              display: 'block', transition: 'transform .15s',
+              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {/* Paper plane icon like Instagram */}
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"></line>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+            </svg>
+          </button>
+          <span style={{ color: '#fff', fontSize: 11, fontWeight: 600, textShadow: '0 1px 3px rgba(0,0,0,.8)' }}>
+            Share
           </span>
         </div>
 
@@ -341,8 +337,7 @@ const ReelItem = ({ post, isActive }) => {
         {isVideo && (
           <button onClick={e => { e.stopPropagation(); setMuted(m => !m); }} style={{
             background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: 22, color: '#fff',
-            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
+            fontSize: 22, color: '#fff', filter: 'drop-shadow(0 1px 3px rgba(0,0,0,.6))',
             transition: 'transform .15s', display: 'block',
           }}
             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.2)'}
@@ -351,12 +346,16 @@ const ReelItem = ({ post, isActive }) => {
         )}
       </div>
 
+      {/* Comments drawer */}
       {showComments && <CommentDrawer post={post} onClose={() => setShowComments(false)} />}
+
+      {/* Share sheet — slides up from bottom */}
+      {showShare && <ShareSheet post={post} onClose={() => setShowShare(false)} />}
     </div>
   );
 };
 
-// ── Main Page ────────────────────────────────────────────────
+// ── Main Reels Page ──────────────────────────────────────────
 const ReelsPage = () => {
   const [reels,     setReels]     = useState([]);
   const [loading,   setLoading]   = useState(true);
@@ -379,7 +378,6 @@ const ReelsPage = () => {
     }).finally(() => setLoading(false));
   }, []);
 
-  // Track active reel
   useEffect(() => {
     if (!reels.length || !containerRef.current) return;
     const observer = new IntersectionObserver(
@@ -392,17 +390,16 @@ const ReelsPage = () => {
     return () => observer.disconnect();
   }, [reels]);
 
-  // Keyboard nav
   useEffect(() => {
     const onKey = (e) => {
       if (!containerRef.current) return;
       if (e.key === 'ArrowDown' || e.key === 'j') {
         e.preventDefault();
-        containerRef.current.children[Math.min(activeIdx+1, reels.length-1)]?.scrollIntoView({ behavior: 'smooth' });
+        containerRef.current.children[Math.min(activeIdx + 1, reels.length - 1)]?.scrollIntoView({ behavior: 'smooth' });
       }
       if (e.key === 'ArrowUp' || e.key === 'k') {
         e.preventDefault();
-        containerRef.current.children[Math.max(activeIdx-1, 0)]?.scrollIntoView({ behavior: 'smooth' });
+        containerRef.current.children[Math.max(activeIdx - 1, 0)]?.scrollIntoView({ behavior: 'smooth' });
       }
     };
     window.addEventListener('keydown', onKey);
@@ -416,62 +413,23 @@ const ReelsPage = () => {
   );
 
   return (
-    // Outer page — has sidebar via Layout
-    <div style={{
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100vh',
-      background: 'var(--bg)',
-      overflow: 'hidden',
-    }}>
-      {/* Phone-shaped container — like Instagram desktop */}
-      <div style={{
-        width: 400,
-        height: '92vh',
-        maxHeight: 800,
-        borderRadius: 24,
-        overflow: 'hidden',
-        position: 'relative',
-        boxShadow: '0 24px 80px rgba(0,0,0,.3)',
-        background: '#000',
-        flexShrink: 0,
-      }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', overflow: 'hidden' }}>
+
+      {/* Phone-shaped reel container */}
+      <div style={{ width: 400, height: '92vh', maxHeight: 800, borderRadius: 24, overflow: 'hidden', position: 'relative', boxShadow: '0 24px 80px rgba(0,0,0,.3)', background: '#000', flexShrink: 0 }}>
         {reels.length === 0 ? (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
             <div style={{ fontSize: 48 }}>🎬</div>
             <div style={{ color: '#fff', fontSize: 18, fontWeight: 600 }}>No posts yet</div>
-            <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 13, textAlign: 'center', padding: '0 24px' }}>
-              Follow people or create posts to see them here
-            </div>
-            <Link to="/" style={{ marginTop: 8, padding: '10px 24px', background: '#fff', color: '#000', borderRadius: 24, fontWeight: 600, fontSize: 14 }}>
-              Go home
-            </Link>
+            <div style={{ color: 'rgba(255,255,255,.5)', fontSize: 13, textAlign: 'center', padding: '0 24px' }}>Follow people or create posts to see them here</div>
+            <Link to="/" style={{ marginTop: 8, padding: '10px 24px', background: '#fff', color: '#000', borderRadius: 24, fontWeight: 600, fontSize: 14 }}>Go home</Link>
           </div>
         ) : (
           <>
-            {/* Scroll snapping container */}
-            <div
-              ref={containerRef}
-              style={{
-                height: '100%',
-                overflowY: 'scroll',
-                scrollSnapType: 'y mandatory',
-                scrollbarWidth: 'none',
-                msOverflowStyle: 'none',
-              }}
-            >
+            {/* Scroll container */}
+            <div ref={containerRef} style={{ height: '100%', overflowY: 'scroll', scrollSnapType: 'y mandatory', scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {reels.map((post, i) => (
-                <div
-                  key={post.id}
-                  data-idx={i}
-                  style={{
-                    height: '100%',
-                    flexShrink: 0,
-                    scrollSnapAlign: 'start',
-                    scrollSnapStop: 'always',
-                  }}
-                >
+                <div key={post.id} data-idx={i} style={{ height: '100%', flexShrink: 0, scrollSnapAlign: 'start', scrollSnapStop: 'always' }}>
                   <ReelItem post={post} isActive={i === activeIdx} />
                 </div>
               ))}
@@ -479,20 +437,9 @@ const ReelsPage = () => {
 
             {/* Dot indicators */}
             {reels.length > 1 && (
-              <div style={{
-                position: 'absolute', right: -20, top: '50%',
-                transform: 'translateY(-50%)',
-                display: 'flex', flexDirection: 'column', gap: 5,
-                pointerEvents: 'none',
-              }}>
+              <div style={{ position: 'absolute', right: -20, top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 5, pointerEvents: 'none' }}>
                 {reels.map((_, i) => (
-                  <div key={i} style={{
-                    width: 3,
-                    height: i === activeIdx ? 18 : 6,
-                    borderRadius: 2,
-                    background: i === activeIdx ? 'var(--text-1)' : 'var(--border-2)',
-                    transition: 'all .3s ease',
-                  }} />
+                  <div key={i} style={{ width: 3, height: i === activeIdx ? 18 : 6, borderRadius: 2, background: i === activeIdx ? 'var(--text-1)' : 'var(--border-2)', transition: 'all .3s ease' }} />
                 ))}
               </div>
             )}
@@ -500,36 +447,18 @@ const ReelsPage = () => {
         )}
       </div>
 
-      {/* Up/Down arrows outside the phone */}
+      {/* Up/Down nav arrows */}
       {reels.length > 1 && (
-        <div style={{
-          position: 'absolute', right: 'calc(50% - 240px)',
-          top: '50%', transform: 'translateY(-50%)',
-          display: 'flex', flexDirection: 'column', gap: 12,
-        }}>
+        <div style={{ position: 'absolute', right: 'calc(50% - 240px)', top: '50%', transform: 'translateY(-50%)', display: 'flex', flexDirection: 'column', gap: 10 }}>
           <button
-            onClick={() => containerRef.current?.children[Math.max(activeIdx-1,0)]?.scrollIntoView({ behavior:'smooth' })}
+            onClick={() => containerRef.current?.children[Math.max(activeIdx - 1, 0)]?.scrollIntoView({ behavior: 'smooth' })}
             disabled={activeIdx === 0}
-            style={{
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              cursor: activeIdx === 0 ? 'not-allowed' : 'pointer',
-              fontSize: 18, opacity: activeIdx === 0 ? .3 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all .15s', boxShadow: 'var(--shadow)',
-            }}
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', cursor: activeIdx === 0 ? 'not-allowed' : 'pointer', fontSize: 18, opacity: activeIdx === 0 ? .3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', boxShadow: 'var(--shadow)' }}
           >↑</button>
           <button
-            onClick={() => containerRef.current?.children[Math.min(activeIdx+1, reels.length-1)]?.scrollIntoView({ behavior:'smooth' })}
+            onClick={() => containerRef.current?.children[Math.min(activeIdx + 1, reels.length - 1)]?.scrollIntoView({ behavior: 'smooth' })}
             disabled={activeIdx === reels.length - 1}
-            style={{
-              width: 40, height: 40, borderRadius: '50%',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              cursor: activeIdx === reels.length-1 ? 'not-allowed' : 'pointer',
-              fontSize: 18, opacity: activeIdx === reels.length-1 ? .3 : 1,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all .15s', boxShadow: 'var(--shadow)',
-            }}
+            style={{ width: 40, height: 40, borderRadius: '50%', background: 'var(--surface)', border: '1px solid var(--border)', cursor: activeIdx === reels.length - 1 ? 'not-allowed' : 'pointer', fontSize: 18, opacity: activeIdx === reels.length - 1 ? .3 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all .15s', boxShadow: 'var(--shadow)' }}
           >↓</button>
         </div>
       )}
