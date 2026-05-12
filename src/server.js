@@ -27,9 +27,7 @@ const searchRoutes = require('./routes/search');
 // Express App
 // =========================
 const app = express();
-
-// app.set('trust proxy', 1);
-
+app.set('trust proxy', 1);
 const server = http.createServer(app);
 
 
@@ -297,4 +295,3 @@ if (process.env.NODE_ENV !== 'production') {
 // Export for Vercel
 // =========================
 module.exports = app;
-app.set('trust proxy', 1);
