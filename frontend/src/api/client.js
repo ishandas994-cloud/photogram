@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: 'https://photogram-backend-plum.vercel.app/api',
 });
 
 // Attach access token to every request
@@ -29,7 +29,10 @@ api.interceptors.response.use(
       refreshing = true;
       try {
         const refreshToken = localStorage.getItem('refreshToken');
-        const { data } = await axios.post('/api/auth/refresh', { refreshToken });
+       const { data } = await axios.post(
+  'https://photogram-backend-plum.vercel.app/api/auth/refresh',
+  { refreshToken }
+);
         localStorage.setItem('accessToken', data.accessToken);
         localStorage.setItem('refreshToken', data.refreshToken);
         queue.forEach(({ resolve }) => resolve());

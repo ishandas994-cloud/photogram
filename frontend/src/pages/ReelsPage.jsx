@@ -8,12 +8,15 @@ import ShareSheet from '../components/post/ShareSheet';
 import { formatCount, timeAgo } from '../utils/helpers';
 import toast from 'react-hot-toast';
 
+const API_BASE =
+  process.env.REACT_APP_API_URL?.replace('/api', '') ||
+  'http://localhost:5000';
+
 const getUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http')) return url;
-  return 'http://localhost:5000' + url;
+  return API_BASE + url;
 };
-
 // ── Floating heart ───────────────────────────────────────────
 const LikeFloat = ({ x, y, onDone }) => {
   useEffect(() => { const t = setTimeout(onDone, 800); return () => clearTimeout(t); }, []);

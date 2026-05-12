@@ -7,10 +7,14 @@ import { Spinner } from '../ui/Spinner';
 import Avatar from '../ui/Avatar';
 import toast from 'react-hot-toast';
 
+const API_BASE =
+  (process.env.REACT_APP_API_URL || 'http://localhost:5000/api')
+    .replace('/api', '');
+
 const getUrl = (url) => {
   if (!url) return '';
   if (url.startsWith('http')) return url;
-  return 'http://localhost:5000' + url;
+  return API_BASE + url;
 };
 
 // ── Viewers drawer (shown to story owner) ───────────────────

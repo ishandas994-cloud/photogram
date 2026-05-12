@@ -4,8 +4,12 @@ import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
+const SOCKET_URL =
+  process.env.REACT_APP_API_URL?.replace('/api', '') ||
+  'http://localhost:5000';
+
 export const SocketProvider = ({ children }) => {
-  const { user }  = useAuth();
+  const { user } = useAuth();
   const socketRef = useRef(null);
   const [connected, setConnected] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
@@ -21,10 +25,10 @@ export const SocketProvider = ({ children }) => {
     const token = localStorage.getItem('accessToken');
     if (!token) return;
 
-    // Prevent duplicate connections (React StrictMode mounts twice)
+    // Prevent duplicate connections (StrictMode safe)
     if (socketRef.current?.connected) return;
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(SOCKET_URL, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -45,10 +49,17 @@ export const SocketProvider = ({ children }) => {
       console.warn('Socket connect error:', err.message);
     });
 
-    socket.on('user_online',  ({ userId }) =>
-      setOnlineUsers(p => new Set([...p, userId])));
-    socket.on('user_offline', ({ userId }) =>
-      setOnlineUsers(p => { const n = new Set(p); n.delete(userId); return n; }));
+    socket.on('user_online', ({ userId }) => {
+      setOnlineUsers(prev => new Set([...prev, userId]));
+    });
+
+    socket.on('user_offline', ({ userId }) => {
+      setOnlineUsers(prev => {
+        const copy = new Set(prev);
+        copy.delete(userId);
+        return copy;
+      });
+    });
 
     socketRef.current = socket;
 
@@ -57,31 +68,40 @@ export const SocketProvider = ({ children }) => {
       socketRef.current = null;
       setConnected(false);
     };
-  }, [user?.id]); // use user.id not user object to prevent re-runs
+  }, [user?.id]);
 
-  const joinConversation  = (id) => socketRef.current?.emit('join_conversation', id);
-  const leaveConversation = (id) => socketRef.current?.emit('leave_conversation', id);
+  const joinConversation = (id) =>
+    socketRef.current?.emit('join_conversation', id);
+
+  const leaveConversation = (id) =>
+    socketRef.current?.emit('leave_conversation', id);
+
   const sendTyping = (convId, typing) =>
-    socketRef.current?.emit(typing ? 'typing_start' : 'typing_stop', { convId });
+    socketRef.current?.emit(
+      typing ? 'typing_start' : 'typing_stop',
+      { convId }
+    );
 
-  // Safe onEvent — returns no-op cleanup if socket not ready
-  const onEvent = (ev, fn) => {
+  const onEvent = (event, callback) => {
     const socket = socketRef.current;
     if (!socket) return () => {};
-    socket.on(ev, fn);
-    return () => socket.off(ev, fn);
+
+    socket.on(event, callback);
+    return () => socket.off(event, callback);
   };
 
   return (
-    <SocketContext.Provider value={{
-      socket: socketRef,
-      connected,
-      onlineUsers,
-      joinConversation,
-      leaveConversation,
-      sendTyping,
-      onEvent,
-    }}>
+    <SocketContext.Provider
+      value={{
+        socket: socketRef,
+        connected,
+        onlineUsers,
+        joinConversation,
+        leaveConversation,
+        sendTyping,
+        onEvent,
+      }}
+    >
       {children}
     </SocketContext.Provider>
   );

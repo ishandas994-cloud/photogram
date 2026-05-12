@@ -161,9 +161,9 @@ const StoriesBar = () => {
               <div style={{ width: '100%', height: '100%', borderRadius: '50%', border: myGroup ? '2px solid var(--surface)' : 'none', overflow: 'hidden', background: 'var(--surface-2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {myGroup?.stories?.[0] ? (
                   <img
-                    src={myGroup.stories[0].thumbnail_url
-                      ? `http://localhost:5000${myGroup.stories[0].thumbnail_url}`
-                      : `http://localhost:5000${myGroup.stories[0].media_url}`}
+                   src={myGroup.stories[0].thumbnail_url
+  ? `https://photogram-backend-plum.vercel.app${myGroup.stories[0].thumbnail_url}`
+  : `https://photogram-backend-plum.vercel.app${myGroup.stories[0].media_url}`}
                     alt=""
                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     onError={e => { e.target.style.display = 'none'; }}
@@ -202,7 +202,7 @@ const StoriesBar = () => {
               <div style={{ width: '100%', height: '100%', borderRadius: '50%', border: '2px solid var(--surface)', overflow: 'hidden', background: 'var(--border)' }}>
                 <img
                   src={s.avatar_url
-                    ? (s.avatar_url.startsWith('http') ? s.avatar_url : `http://localhost:5000${s.avatar_url}`)
+                    ? (s.avatar_url.startsWith('http') ? s.avatar_url : `https://photogram-backend-plum.vercel.app${s.avatar_url}`)
                     : `https://api.dicebear.com/7.x/notionists/svg?seed=${s.username}`}
                   alt={s.username}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
