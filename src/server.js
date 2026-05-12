@@ -53,6 +53,11 @@ app.use('/api/search',        searchRoutes);
 app.get('/health', (_req, res) =>
   res.json({ status: 'ok', timestamp: new Date().toISOString() })
 );
+app.get('/', (_req, res) => {
+  res.json({
+    message: 'Photogram Backend Running'
+  });
+});
 app.use((_req, res) => res.status(404).json({ error: 'Route not found.' }));
 app.use(errorHandler);
 
