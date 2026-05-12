@@ -22,7 +22,14 @@ const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
 
+
+// =========================
+// Express App
+// =========================
 const app = express();
+
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
 
