@@ -96,10 +96,13 @@ io.sendNotification = (recipientId, payload) => {
     io.to(sid).emit('notification', payload));
 };
 
-const PORT = parseInt(process.env.PORT || '3000');
-server.listen(PORT, () => {
-  console.log('🚀  Photogram API  →  http://localhost:' + PORT);
-  console.log('📡  Socket.io ready');
-});
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = parseInt(process.env.PORT || '3000');
 
-module.exports = { app, server, io };
+  server.listen(PORT, () => {
+    console.log('🚀 Photogram API → http://localhost:' + PORT);
+    console.log('📡 Socket.io ready');
+  });
+}
+
+module.exports = app;
