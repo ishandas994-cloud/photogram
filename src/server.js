@@ -22,26 +22,24 @@ const messageRoutes = require('./routes/messages');
 const notificationRoutes = require('./routes/notifications');
 const searchRoutes = require('./routes/search');
 
-
 // =========================
-// Express App
+// App + Server
 // =========================
 const app = express();
 app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 
-
-//==== =========================
-// Allowed Origins
+// =========================
+// CORS CONFIG
 // =========================
 const allowedOrigins = [
   'http://localhost:3000',
   'https://photogram-eta.vercel.app'
 ];
 
-
 // =========================
-// Socket.io
+// Socket.IO
 // =========================
 const io = new Server(server, {
   cors: {
@@ -53,15 +51,12 @@ const io = new Server(server, {
 
 app.set('io', io);
 
-
 // =========================
-// Middlewares
+// MIDDLEWARES
 // =========================
 app.use(
   helmet({
-    crossOriginResourcePolicy: {
-      policy: 'cross-origin'
-    }
+    crossOriginResourcePolicy: { policy: 'cross-origin' }
   })
 );
 
@@ -75,46 +70,31 @@ app.use(
 app.use(compression());
 
 app.use(
-  morgan(
-    process.env.NODE_ENV === 'production'
-      ? 'combined'
-      : 'dev'
-  )
+  morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev')
 );
 
 app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: '5mb'
-  })
-);
-
+// Static uploads
 app.use(
   '/uploads',
   express.static(
-    path.join(
-      __dirname,
-      '..',
-      process.env.UPLOAD_DIR || 'uploads'
-    )
+    path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads')
   )
 );
 
+// Rate limit
 app.use(
   rateLimit({
-    windowMs: 60000,
+    windowMs: 60 * 1000,
     max: 300,
-    message: {
-      error: 'Too many requests.'
-    }
+    message: { error: 'Too many requests.' }
   })
 );
 
-
 // =========================
-// Routes
+// ROUTES
 // =========================
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -125,9 +105,8 @@ app.use('/api/conversations', messageRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/search', searchRoutes);
 
-
 // =========================
-// Health Check
+// HEALTH CHECK
 // =========================
 app.get('/health', (_req, res) => {
   res.json({
@@ -136,62 +115,44 @@ app.get('/health', (_req, res) => {
   });
 });
 
-
 // =========================
-// Root Route
+// ROOT
 // =========================
 app.get('/', (_req, res) => {
-  res.json({
-    message: 'Photogram Backend Running'
-  });
+  res.json({ message: 'Photogram Backend Running 🚀' });
 });
 
-
 // =========================
-// 404 Route
+// 404 HANDLER
 // =========================
 app.use((_req, res) => {
-  res.status(404).json({
-    error: 'Route not found.'
-  });
+  res.status(404).json({ error: 'Route not found' });
 });
 
-
 // =========================
-// Error Handler
+// ERROR HANDLER
 // =========================
 app.use(errorHandler);
 
-
 // =========================
-// Socket Authentication
+// SOCKET AUTH
 // =========================
 io.use((socket, next) => {
-  const token = socket.handshake.auth?.token;
-
-  if (!token) {
-    return next(
-      new Error('Authentication required.')
-    );
-  }
-
   try {
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Authentication required'));
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     socket.userId = decoded.userId;
 
     next();
-  } catch (error) {
-    next(new Error('Invalid token.'));
+  } catch (err) {
+    next(new Error('Invalid token'));
   }
 });
 
-
 // =========================
-// Online Users
+// ONLINE USERS TRACKING
 // =========================
 const onlineUsers = new Map();
 
@@ -204,18 +165,13 @@ io.on('connection', (socket) => {
 
   onlineUsers.get(uid).add(socket.id);
 
-  socket.broadcast.emit('user_online', {
-    userId: uid
-  });
+  socket.broadcast.emit('user_online', { userId: uid });
 
-  socket.on('join_conversation', (id) => {
-    socket.join(id);
-  });
+  // join chat
+  socket.on('join_conversation', (id) => socket.join(id));
+  socket.on('leave_conversation', (id) => socket.leave(id));
 
-  socket.on('leave_conversation', (id) => {
-    socket.leave(id);
-  });
-
+  // typing
   socket.on('typing_start', ({ convId }) => {
     socket.to(convId).emit('typing', {
       userId: uid,
@@ -232,66 +188,41 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on(
-    'message_seen',
-    ({ convId, messageId }) => {
-      socket.to(convId).emit('message_seen', {
-        userId: uid,
-        messageId
-      });
-    }
-  );
+  socket.on('message_seen', ({ convId, messageId }) => {
+    socket.to(convId).emit('message_seen', {
+      userId: uid,
+      messageId
+    });
+  });
 
+  // disconnect
   socket.on('disconnect', () => {
     onlineUsers.get(uid)?.delete(socket.id);
 
     if (!onlineUsers.get(uid)?.size) {
       onlineUsers.delete(uid);
-
-      socket.broadcast.emit('user_offline', {
-        userId: uid
-      });
+      socket.broadcast.emit('user_offline', { userId: uid });
     }
   });
 });
 
-
 // =========================
-// Notifications
+// NOTIFICATION HELPER
 // =========================
-io.sendNotification = (
-  recipientId,
-  payload
-) => {
+io.sendNotification = (recipientId, payload) => {
   onlineUsers.get(recipientId)?.forEach((sid) => {
-    io.to(sid).emit(
-      'notification',
-      payload
-    );
+    io.to(sid).emit('notification', payload);
   });
 };
 
-// redeploy trigger
 // =========================
-// Local Development Only
+// START SERVER (IMPORTANT FOR RENDER)
 // =========================
-if (process.env.NODE_ENV !== 'production') {
-  const PORT = parseInt(
-    process.env.PORT || '3000'
-  );
+const PORT = process.env.PORT || 5000;
 
-  server.listen(PORT, () => {
-    console.log(
-      '🚀 Photogram API → http://localhost:' +
-        PORT
-    );
+server.listen(PORT, () => {
+  console.log(`🚀 Photogram API running on port ${PORT}`);
+  console.log(`📡 Socket.IO ready`);
+});
 
-    console.log('📡 Socket.io ready');
-  });
-}
-
-
-// =========================
-// Export for Vercel
-// =========================
 module.exports = app;
