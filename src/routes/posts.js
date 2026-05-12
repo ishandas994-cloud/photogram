@@ -33,5 +33,7 @@ router.delete('/collections/:id',            requireAuth, postCtrl.deleteCollect
 router.get('/collections/:id/posts',         requireAuth, postCtrl.getCollectionPosts);
 router.post('/collections/:id/posts',        requireAuth, postCtrl.addToCollection);
 router.delete('/collections/:id/posts/:postId', requireAuth, postCtrl.removeFromCollection);
+router.put('/:id', requireAuth, postCtrl.editPost);
+
 
 module.exports = router;
