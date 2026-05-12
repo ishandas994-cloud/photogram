@@ -30,7 +30,7 @@ api.interceptors.response.use(
       try {
         const refreshToken = localStorage.getItem('refreshToken');
        const { data } = await axios.post(
-  'https://photogram-backend-plum.vercel.app/api/auth/refresh',
+  'https://photogram-backend-plum.vercel.app',
   { refreshToken }
 );
         localStorage.setItem('accessToken', data.accessToken);
