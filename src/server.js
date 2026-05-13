@@ -41,15 +41,15 @@ const allowedOrigins = [
 // =========================
 // Socket.IO
 // =========================
-const io = new Server(server, {
-  cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true
-  }
+const Pusher = require('pusher');
+const pusher = new Pusher({
+  appId:   process.env.PUSHER_APP_ID,
+  key:     process.env.PUSHER_KEY,
+  secret:  process.env.PUSHER_SECRET,
+  cluster: process.env.PUSHER_CLUSTER,
+  useTLS:  true,
 });
-
-app.set('io', io);
+app.set('pusher', pusher);
 
 // =========================
 // MIDDLEWARES
