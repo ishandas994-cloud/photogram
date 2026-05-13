@@ -11,20 +11,20 @@ exports.createStory = async (req, res) => {
   if (!file) return res.status(400).json({ error: 'Media file required.' });
 
   try {
-    const isVideo = file.mimetype.startsWith('video/');
-    const urls = isVideo
-      ? await saveVideo(file.buffer, 'stories', file.originalname)
-      : await processImage(file.buffer, 'stories',
-          { maxWidth: 1080, maxHeight: 1920 });
+   // Replace the media processing in createStory:
+const isVideo = file.mimetype?.startsWith('video/') || file.resource_type === 'video';
+const url     = file.path || file.secure_url;
+const thumb   = isVideo
+  ? url.replace('/upload/', '/upload/so_0,w_400,h_400,c_fill,q_auto,f_jpg/')
+       .replace(/\.(mp4|webm)$/, '.jpg')
+  : url.replace('/upload/', '/upload/w_300,h_300,c_fill,q_auto/');
 
-    const { rows:[story] } = await db.query(
-      `INSERT INTO stories
-         (user_id, media_url, thumbnail_url, media_type, caption, link)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [userId, urls.url, urls.thumbnailUrl,
-       isVideo ? 'video' : 'image',
-       caption||null, link||null]
-    );
+const { rows: [story] } = await db.query(
+  `INSERT INTO stories
+     (user_id, media_url, thumbnail_url, media_type, caption, link)
+   VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+  [userId, url, thumb, isVideo ? 'video' : 'image', caption || null, link || null]
+);
     res.status(201).json(story);
   } catch (err) {
     console.error(err);

@@ -52,12 +52,11 @@ exports.updateProfile = async (req, res) => {
   const userId = req.user.id;
 
   try {
-    let avatarUrl;
-    if (req.file) {
-      const result = await processImage(req.file.buffer, 'avatars',
-        { maxWidth: 400, maxHeight: 400 });
-      avatarUrl = result.url;
-    }
+   // Replace avatar processing:
+let avatarUrl;
+if (req.file) {
+  avatarUrl = req.file.path || req.file.secure_url;
+}
 
     const { rows } = await db.query(
       `UPDATE users SET

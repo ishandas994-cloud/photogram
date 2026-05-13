@@ -28,23 +28,25 @@ exports.createPost = async (req, res) => {
        comments_off==='true', likes_hidden==='true']
     );
 
-    const mediaRows = [];
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const isVid = file.mimetype.startsWith('video/');
-      const urls  = isVid
-        ? await saveVideo(file.buffer, 'posts', file.originalname)
-        : await processImage(file.buffer, 'posts');
+// Replace this section inside createPost:
+const mediaRows = [];
+for (let i = 0; i < files.length; i++) {
+  const file   = files[i];
+  const isVid  = file.mimetype?.startsWith('video/') || file.resource_type === 'video';
+  const url    = file.path || file.secure_url;
+  const thumb  = isVid
+    ? url.replace('/upload/', '/upload/so_0,w_400,h_400,c_fill,q_auto,f_jpg/')
+         .replace(/\.(mp4|webm)$/, '.jpg')
+    : url.replace('/upload/', '/upload/w_300,h_300,c_fill,q_auto/');
 
-      const { rows: [media] } = await client.query(
-        `INSERT INTO post_media
-           (post_id, media_url, thumbnail_url, media_type, position)
-         VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-        [post.id, urls.url, urls.thumbnailUrl,
-         isVid ? 'video' : 'image', i]
-      );
-      mediaRows.push(media);
-    }
+  const { rows: [media] } = await client.query(
+    `INSERT INTO post_media
+       (post_id, media_url, thumbnail_url, media_type, position)
+     VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+    [post.id, url, thumb, isVid ? 'video' : 'image', i]
+  );
+  mediaRows.push(media);
+}
 
     // Hashtags
     for (const name of extractHashtags(caption)) {

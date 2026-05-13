@@ -3,6 +3,9 @@ const router  = express.Router();
 const ctrl    = require('../controllers/storyController');
 const { requireAuth } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
+const { uploadStory } = require('../middleware/upload');
+// change this line:
+router.post('/', uploadStory.single('media'), ctrl.createStory);
 
 // All story routes require auth
 router.use(requireAuth);

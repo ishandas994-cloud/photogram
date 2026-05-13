@@ -2,11 +2,12 @@ const express = require('express');
 const router  = express.Router();
 const ctrl    = require('../controllers/userController');
 const { requireAuth, optionalAuth } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
+const { uploadAvatar } = require('../middleware/upload');
 
 router.get('/search',               optionalAuth, ctrl.searchUsers);
 router.get('/me',                   requireAuth,  (req,res) => res.json(req.user));
-router.put('/me',                   requireAuth,  upload.single('avatar'), ctrl.updateProfile);
+// router.put('/me',                   requireAuth,  upload.single('avatar'), ctrl.updateProfile);
+router.put('/me', requireAuth, uploadAvatar.single('avatar'), ctrl.updateProfile);
 
 router.get('/:username',            optionalAuth, ctrl.getProfile);
 router.get('/:username/followers',  optionalAuth, ctrl.getFollowers);
