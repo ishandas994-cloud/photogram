@@ -177,8 +177,13 @@ exports.sendMessage = async (req, res) => {
     const full = { ...message, username: sender.username, avatar_url: sender.avatar_url };
 
     // Real-time emit
-    const pusher = req.app.get('pusher');
-pusher?.trigger(`private-conv-${convId}`, 'new_message', fullMessage);
+   const pusher = req.app.get('pusher');
+
+await pusher?.trigger(
+  `private-conv-${convId}`,
+  'new_message',
+  full
+);
 
     res.status(201).json(full);
   } catch (err) {
