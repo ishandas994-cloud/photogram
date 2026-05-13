@@ -1,107 +1,86 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import Pusher from 'pusher-js';
 import { useAuth } from './AuthContext';
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL =
-  process.env.REACT_APP_API_URL?.replace('/api', '') ||
-  'http://localhost:5000';
-
 export const SocketProvider = ({ children }) => {
-  const { user } = useAuth();
-  const socketRef = useRef(null);
+  const { user }      = useAuth();
+  const pusherRef     = useRef(null);
+  const channelRef    = useRef(null);
   const [connected, setConnected] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState(new Set());
 
   useEffect(() => {
     if (!user) {
-      socketRef.current?.disconnect();
-      socketRef.current = null;
-      setConnected(false);
+      pusherRef.current?.disconnect();
       return;
     }
 
-    const token = localStorage.getItem('accessToken');
-    if (!token) return;
-
-    // Prevent duplicate connections (StrictMode safe)
-    if (socketRef.current?.connected) return;
-
-    const socket = io(SOCKET_URL, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-      reconnection: true,
-      reconnectionAttempts: 5,
-      reconnectionDelay: 1000,
-      forceNew: false,
+    const pusher = new Pusher(process.env.REACT_APP_PUSHER_KEY, {
+      cluster: process.env.REACT_APP_PUSHER_CLUSTER || 'ap2',
+      authEndpoint: `${process.env.REACT_APP_API_URL}/pusher/auth`,
+      auth: {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+        },
+      },
     });
 
-    socket.on('connect', () => {
-      setConnected(true);
-    });
+    pusherRef.current = pusher;
 
-    socket.on('disconnect', () => {
-      setConnected(false);
-    });
+    pusher.connection.bind('connected',    () => setConnected(true));
+    pusher.connection.bind('disconnected', () => setConnected(false));
+    pusher.connection.bind('error',        (e) => console.warn('Pusher error:', e));
 
-    socket.on('connect_error', (err) => {
-      console.warn('Socket connect error:', err.message);
-    });
-
-    socket.on('user_online', ({ userId }) => {
-      setOnlineUsers(prev => new Set([...prev, userId]));
-    });
-
-    socket.on('user_offline', ({ userId }) => {
-      setOnlineUsers(prev => {
-        const copy = new Set(prev);
-        copy.delete(userId);
-        return copy;
-      });
-    });
-
-    socketRef.current = socket;
+    // Subscribe to user's private channel
+    const channel = pusher.subscribe(`private-user-${user.id}`);
+    channelRef.current = channel;
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
-      setConnected(false);
+      channel.unsubscribe();
+      pusher.disconnect();
     };
   }, [user?.id]);
 
-  const joinConversation = (id) =>
-    socketRef.current?.emit('join_conversation', id);
+  const joinConversation = (convId) => {
+    if (!pusherRef.current) return;
+    pusherRef.current.subscribe(`private-conv-${convId}`);
+  };
 
-  const leaveConversation = (id) =>
-    socketRef.current?.emit('leave_conversation', id);
+  const leaveConversation = (convId) => {
+    pusherRef.current?.unsubscribe(`private-conv-${convId}`);
+  };
 
-  const sendTyping = (convId, typing) =>
-    socketRef.current?.emit(
-      typing ? 'typing_start' : 'typing_stop',
-      { convId }
-    );
+  const sendTyping = (convId, typing) => {
+    // Handled via API call in ChatWindow
+  };
 
-  const onEvent = (event, callback) => {
-    const socket = socketRef.current;
-    if (!socket) return () => {};
+  const onEvent = (ev, fn) => {
+    const channel = channelRef.current;
+    if (!channel) return () => {};
+    channel.bind(ev, fn);
+    return () => channel.unbind(ev, fn);
+  };
 
-    socket.on(event, callback);
-    return () => socket.off(event, callback);
+  const onConvEvent = (convId, ev, fn) => {
+    const ch = pusherRef.current?.channel(`private-conv-${convId}`);
+    if (!ch) return () => {};
+    ch.bind(ev, fn);
+    return () => ch.unbind(ev, fn);
   };
 
   return (
-    <SocketContext.Provider
-      value={{
-        socket: socketRef,
-        connected,
-        onlineUsers,
-        joinConversation,
-        leaveConversation,
-        sendTyping,
-        onEvent,
-      }}
-    >
+    <SocketContext.Provider value={{
+      pusher: pusherRef,
+      connected,
+      joinConversation,
+      leaveConversation,
+      sendTyping,
+      onEvent,
+      onConvEvent,
+      // Compatibility shim so existing code doesn't break
+      socket: { current: { emit: () => {} } },
+    }}>
       {children}
     </SocketContext.Provider>
   );
