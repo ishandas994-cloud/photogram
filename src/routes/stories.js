@@ -1,56 +1,40 @@
 const express = require('express');
-const router = express.Router();
+const router  = express.Router();
 
 const ctrl = require('../controllers/storyController');
+
 const { requireAuth } = require('../middleware/auth');
 const { uploadStory } = require('../middleware/upload');
 
-// =========================
-// All routes require auth
-// =========================
+// All story routes require auth
 router.use(requireAuth);
 
-// =========================
-// Story Feed
-// =========================
+// GET stories feed
 router.get('/feed', ctrl.getStoryFeed);
 
-// =========================
-// Upload Story
-// IMPORTANT:
-// use uploadStory not upload
-// =========================
+// POST upload story
 router.post(
   '/',
   uploadStory.single('media'),
   ctrl.createStory
 );
 
-// =========================
-// Single Story
-// =========================
+// GET single story
 router.get('/:id', ctrl.getStory);
 
-// =========================
-// Views
-// =========================
+// POST view story
 router.post('/:id/view', ctrl.viewStory);
 
+// GET viewers
 router.get('/:id/viewers', ctrl.getViewers);
 
-// =========================
-// Reactions
-// =========================
+// POST reaction
 router.post('/:id/react', ctrl.reactToStory);
 
-// =========================
-// Delete Story
-// =========================
+// DELETE story
 router.delete('/:id', ctrl.deleteStory);
 
-// =========================
-// Highlights
-// =========================
+// POST highlight
 router.post('/highlights', ctrl.createHighlight);
 
 module.exports = router;
