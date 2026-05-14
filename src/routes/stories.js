@@ -1,25 +1,56 @@
 const express = require('express');
-const router  = express.Router();
-const ctrl    = require('../controllers/storyController');
-const { requireAuth } = require('../middleware/auth');
-const { upload } = require('../middleware/upload');
-const { uploadStory } = require('../middleware/upload');
-// change this line:
-router.post('/', uploadStory.single('media'), ctrl.createStory);
+const router = express.Router();
 
-// All story routes require auth
+const ctrl = require('../controllers/storyController');
+const { requireAuth } = require('../middleware/auth');
+const { uploadStory } = require('../middleware/upload');
+
+// =========================
+// All routes require auth
+// =========================
 router.use(requireAuth);
 
-router.get('/feed',               ctrl.getStoryFeed);           // GET  stories of followed users
-router.post('/',   upload.single('media'), ctrl.createStory);   // POST upload a new story
+// =========================
+// Story Feed
+// =========================
+router.get('/feed', ctrl.getStoryFeed);
 
-router.get('/:id',                ctrl.getStory);               // GET  single story
-router.post('/:id/view',          ctrl.viewStory);              // POST mark as viewed
-router.get('/:id/viewers',        ctrl.getViewers);             // GET  who viewed (owner only)
-router.post('/:id/react',         ctrl.reactToStory);           // POST emoji reaction
-router.delete('/:id',             ctrl.deleteStory);            // DELETE own story
+// =========================
+// Upload Story
+// IMPORTANT:
+// use uploadStory not upload
+// =========================
+router.post(
+  '/',
+  uploadStory.single('media'),
+  ctrl.createStory
+);
 
+// =========================
+// Single Story
+// =========================
+router.get('/:id', ctrl.getStory);
+
+// =========================
+// Views
+// =========================
+router.post('/:id/view', ctrl.viewStory);
+
+router.get('/:id/viewers', ctrl.getViewers);
+
+// =========================
+// Reactions
+// =========================
+router.post('/:id/react', ctrl.reactToStory);
+
+// =========================
+// Delete Story
+// =========================
+router.delete('/:id', ctrl.deleteStory);
+
+// =========================
 // Highlights
-router.post('/highlights',        ctrl.createHighlight);        // POST create highlight album
+// =========================
+router.post('/highlights', ctrl.createHighlight);
 
 module.exports = router;
